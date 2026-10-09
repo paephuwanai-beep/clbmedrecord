@@ -12,12 +12,22 @@
         .page-section { display: none; background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 30px; }
         .page-section.active { display: block; }
         .nav-link.active { font-weight: bold; text-decoration: underline; text-underline-offset: 5px; }
+        @media print {
+            body { background-color: white; }
+            .navbar, .btn, .no-print { display: none !important; }
+            .page-section { box-shadow: none; padding: 0; display: none; }
+            #review { display: block; }
+        }
     </style>
 </head>
 <body>
+    <!-- เมนูนำทาง -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-success mb-4 sticky-top">
         <div class="container">
             <a class="navbar-brand" href="#"><i class="fas fa-hospital"></i> ระบบคลังยา</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item"><a class="nav-link active" href="#" onclick="switchTab('home', this)">HOME</a></li>
@@ -30,12 +40,72 @@
     </nav>
 
     <div class="container">
-        <!-- หน้า HOME, Check up, Review ใช้โครงสร้างเดิมของคุณได้เลย (ละไว้เพื่อความกระชับ) -->
-        <div id="home" class="page-section active"><h3><i class="fas fa-home"></i> แจ้งเตือนยาหมดอายุ (รันตามโค้ดเดิม)</h3></div>
-        <div id="checkup" class="page-section"><h3><i class="fas fa-clipboard-check"></i> ตรวจนับสต๊อก (รันตามโค้ดเดิม)</h3></div>
-        <div id="review" class="page-section"><h3><i class="fas fa-list"></i> ดูรายการยา (รันตามโค้ดเดิม)</h3></div>
+        
+        <!-- หน้า 1: HOME -->
+        <div id="home" class="page-section active">
+            <h3 class="mb-4 text-secondary"><i class="fas fa-chart-line"></i> Dashboard (แจ้งเตือนสถานะยา)</h3>
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <div class="card border-warning h-100">
+                        <div class="card-header bg-warning text-dark fw-bold"><i class="fas fa-exclamation-triangle"></i> ยาใกล้หมดอายุ</div>
+                        <ul class="list-group list-group-flush" id="nearExpireList">
+                            <li class="list-group-item">กำลังโหลด...</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card border-danger h-100">
+                        <div class="card-header bg-danger text-white fw-bold"><i class="fas fa-times-circle"></i> ยาหมดอายุแล้ว</div>
+                        <ul class="list-group list-group-flush" id="expiredList">
+                            <li class="list-group-item">กำลังโหลด...</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-        <!-- หน้าจัดการข้อมูล (CRUD) ที่เพิ่มเข้ามาใหม่ -->
+        <!-- หน้า 2: Check up -->
+        <div id="checkup" class="page-section">
+            <h3 class="mb-4 text-secondary"><i class="fas fa-clipboard-check"></i> ตรวจนับสต๊อกยา (Check up)</h3>
+            <div class="table-responsive">
+                <table class="table table-bordered align-middle" id="checkupTable">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>รายการยา</th>
+                            <th>ยอดเดิม</th>
+                            <th>จำนวนนับจริง</th>
+                            <th>หมดอายุ (ด.ค. พ.ศ.)</th>
+                            <th>บันทึก</th>
+                        </tr>
+                    </thead>
+                    <tbody><tr><td colspan="5" class="text-center py-4">กำลังโหลดข้อมูล...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- หน้า 3: Review -->
+        <div id="review" class="page-section">
+            <div class="d-flex justify-content-between mb-4 no-print">
+                <h3 class="text-secondary"><i class="fas fa-list-ul"></i> รายการยาและเวชภัณฑ์</h3>
+                <button class="btn btn-primary" onclick="window.print()"><i class="fas fa-print"></i> พิมพ์ / PDF</button>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-bordered table-striped" id="reviewTable">
+                    <thead class="table-success">
+                        <tr>
+                            <th>รายการยา</th>
+                            <th>หมวดหมู่</th>
+                            <th>ข้อบ่งใช้</th>
+                            <th>ยอดคงเหลือ</th>
+                            <th>วันหมดอายุ</th>
+                        </tr>
+                    </thead>
+                    <tbody><tr><td colspan="5" class="text-center py-4">กำลังโหลดข้อมูล...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- หน้า 4: Manage -->
         <div id="manage" class="page-section">
             <div class="d-flex justify-content-between mb-4">
                 <h3 class="text-secondary"><i class="fas fa-database"></i> จัดการรายการยา (เพิ่ม/ลบ/แก้ไข)</h3>
@@ -48,18 +118,17 @@
                             <th>รายการยา / เวชภัณฑ์</th>
                             <th>หมวดหมู่</th>
                             <th>หน่วยนับ</th>
-                            <th width="15%" class="text-center">จัดการ</th>
+                            <th class="text-center">จัดการ</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        <tr><td colspan="4" class="text-center py-3">กำลังโหลดข้อมูล...</td></tr>
-                    </tbody>
+                    <tbody><tr><td colspan="4" class="text-center py-4">กำลังโหลดข้อมูล...</td></tr></tbody>
                 </table>
             </div>
         </div>
+
     </div>
 
-    <!-- Modal สำหรับ เพิ่ม / แก้ไข รายการ -->
+    <!-- Modal เพิ่ม/แก้ไขยา -->
     <div class="modal fade" id="itemModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -68,22 +137,21 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <input type="hidden" id="formRowIndex">
-                    <input type="hidden" id="formAction">
+                    <input type="hidden" id="formRowIndex"><input type="hidden" id="formAction">
                     <div class="mb-3"><label>ชื่อยา / เวชภัณฑ์</label><input type="text" class="form-control" id="formName"></div>
                     <div class="mb-3"><label>หมวดหมู่</label>
                         <select class="form-select" id="formCategory">
                             <option value="ยาเม็ด">ยาเม็ด</option><option value="ยาน้ำ">ยาน้ำ</option>
                             <option value="ยาใช้ภายนอก">ยาใช้ภายนอก</option><option value="ยาฉีด">ยาฉีด</option>
-                            <option value="พัสดุการแพทย์">พัสดุการแพทย์</option>
+                            <option value="พัสดุการแพทย์">พัสดุการแพทย์</option><option value="สารน้ำและเวชภัณฑ์อื่นๆ">สารน้ำและเวชภัณฑ์อื่นๆ</option>
                         </select>
                     </div>
-                    <div class="mb-3"><label>ข้อบ่งใช้ (Indication)</label><input type="text" class="form-control" id="formIndication"></div>
-                    <div class="mb-3"><label>หน่วยนับ (เช่น เม็ด, ขวด, กล่อง)</label><input type="text" class="form-control" id="formUnit"></div>
+                    <div class="mb-3"><label>ข้อบ่งใช้</label><input type="text" class="form-control" id="formIndication"></div>
+                    <div class="mb-3"><label>หน่วยนับ</label><input type="text" class="form-control" id="formUnit"></div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
-                    <button type="button" class="btn btn-primary" onclick="submitItemData()">บันทึกข้อมูล</button>
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                    <button class="btn btn-primary" onclick="submitItemData()">บันทึกข้อมูล</button>
                 </div>
             </div>
         </div>
@@ -91,9 +159,18 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        const API_URL = 'https://script.google.com/macros/s/AKfycbwtvfgmy7J0G0dRMENlHrV3lWPgJBcQtqa_s5yOLG4RAfKfSg61ICtUyhBnSSdcD04H5Q/exec'; // *** นำ Web App URL ของคุณมาใส่ตรงนี้ ***
+        // ==========================================
+        // เปลี่ยน URL ตรงนี้ให้เป็นของคุณ
+        // ==========================================
+        const API_URL = 'https://script.google.com/macros/s/AKfycbwtvfgmy7J0G0dRMENlHrV3lWPgJBcQtqa_s5yOLG4RAfKfSg61ICtUyhBnSSdcD04H5Q/exec'; 
+
         let globalData = [];
         let modalInstance;
+
+        window.onload = function() {
+            modalInstance = new bootstrap.Modal(document.getElementById('itemModal'));
+            loadData();
+        };
 
         function switchTab(tabId, element) {
             document.querySelectorAll('.page-section').forEach(el => el.classList.remove('active'));
@@ -102,12 +179,11 @@
             if(element) element.classList.add('active');
         }
 
-        window.onload = function() {
-            modalInstance = new bootstrap.Modal(document.getElementById('itemModal'));
-            loadData();
-        };
-
         function loadData() {
+            if(API_URL === 'YOUR_WEB_APP_URL_HERE') {
+                alert("กรุณาใส่ URL ของ Google Apps Script ในโค้ดบรรทัดที่ 162 ก่อนครับ");
+                return;
+            }
             fetch(API_URL)
                 .then(res => res.json())
                 .then(data => {
@@ -116,78 +192,111 @@
                         name: Object.values(row)[1] || "-",
                         category: Object.values(row)[2] || "-",
                         indication: Object.values(row)[3] || "-",
+                        stock: Object.values(row)[7] || "0",
+                        expText: Object.values(row)[8] || "-",
                         unit: Object.values(row)[12] || "-"
-                    })).filter(item => item.name !== "-");
-                    renderManageTable();
+                    })).filter(item => item.name !== "-" && item.name !== "");
+                    
+                    renderHome();
+                    renderCheckup();
+                    renderReview();
+                    renderManage();
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert("ดึงข้อมูลไม่สำเร็จ กรุณาตรวจสอบ URL หรือสิทธิ์การเข้าถึง Google Apps Script");
                 });
         }
 
-        function renderManageTable() {
-            const tbody = document.querySelector('#manageTable tbody');
-            tbody.innerHTML = "";
+        // --- ฟังก์ชัน Home ---
+        function parseExpireDate(expStr) {
+            if(!expStr || expStr === "-") return null;
+            const mTH = {"ม.ค.":1,"ก.พ.":2,"มี.ค.":3,"เม.ย.":4,"พ.ค.":5,"มิ.ย.":6,"ก.ค.":7,"ส.ค.":8,"ก.ย.":9,"ต.ค.":10,"พ.ย.":11,"ธ.ค.":12};
+            let m = 12; for(let k in mTH) if(expStr.replace(/\s/g, "").includes(k.replace(".",""))) { m = mTH[k]; break; }
+            let yMatch = expStr.match(/\d{2,4}/); let y = 9999;
+            if(yMatch) { y = parseInt(yMatch[0]); if(y < 100) y += 2500; else if(y < 2500) y += 543; }
+            return { year: y, month: m };
+        }
+        function renderHome() {
+            const nList = document.getElementById('nearExpireList'); const eList = document.getElementById('expiredList');
+            nList.innerHTML = ""; eList.innerHTML = "";
+            let nC = 0, eC = 0; const now = new Date(); const cY = now.getFullYear() + 543; const cM = now.getMonth() + 1;
             globalData.forEach(item => {
-                tbody.innerHTML += `
-                    <tr>
-                        <td class="fw-bold">${item.name}</td>
-                        <td>${item.category}</td>
-                        <td>${item.unit}</td>
-                        <td class="text-center">
-                            <button class="btn btn-sm btn-outline-primary" onclick='openModal("edit", ${JSON.stringify(item)})'><i class="fas fa-edit"></i></button>
-                            <button class="btn btn-sm btn-outline-danger" onclick="deleteItem(${item.rowIndex}, '${item.name}')"><i class="fas fa-trash"></i></button>
-                        </td>
-                    </tr>
-                `;
+                const d = parseExpireDate(String(item.expText)); if(!d) return;
+                const diff = ((d.year - cY) * 12) + (d.month - cM);
+                if(diff < 0) { eList.innerHTML += `<li class="list-group-item text-danger">${item.name} (${item.expText})</li>`; eC++; }
+                else if(diff >= 0 && diff <= 1) { nList.innerHTML += `<li class="list-group-item text-warning">${item.name} (${item.expText})</li>`; nC++; }
+            });
+            if(!nC) nList.innerHTML = "<li class='list-group-item'>✅ ไม่มียาใกล้หมดอายุ</li>";
+            if(!eC) eList.innerHTML = "<li class='list-group-item'>✅ ไม่มียาตกค้าง</li>";
+        }
+
+        // --- ฟังก์ชัน Checkup ---
+        function renderCheckup() {
+            const tb = document.querySelector('#checkupTable tbody'); tb.innerHTML = "";
+            globalData.forEach((item, i) => {
+                tb.innerHTML += `<tr>
+                    <td class="fw-bold">${item.name}</td>
+                    <td>${item.stock} ${item.unit}</td>
+                    <td><input type="number" id="c_${i}" class="form-control form-control-sm"></td>
+                    <td><input type="text" id="e_${i}" class="form-control form-control-sm" placeholder="เช่น ต.ค. 69" value="${item.expText !== '-' ? item.expText : ''}"></td>
+                    <td><button class="btn btn-primary btn-sm" onclick="saveStock(${i})">บันทึก</button></td>
+                </tr>`;
+            });
+        }
+        function saveStock(i) {
+            const c = document.getElementById(`c_${i}`).value; const e = document.getElementById(`e_${i}`).value;
+            if(!c) { alert('ระบุจำนวน!'); return; }
+            fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: "update_stock", row: globalData[i].rowIndex, newCount: c, newExp: e }) })
+                .then(r => r.json()).then(() => { alert('บันทึกสำเร็จ'); loadData(); });
+        }
+
+        // --- ฟังก์ชัน Review ---
+        function renderReview() {
+            const tb = document.querySelector('#reviewTable tbody'); tb.innerHTML = "";
+            globalData.sort((a,b) => a.name.localeCompare(b.name)).forEach(item => {
+                tb.innerHTML += `<tr><td>${item.name}</td><td>${item.category}</td><td>${item.indication}</td><td>${item.stock} ${item.unit}</td><td>${item.expText}</td></tr>`;
             });
         }
 
-        function openModal(action, itemData = null) {
-            document.getElementById('formAction').value = action;
-            if(action === 'add') {
-                document.getElementById('modalTitle').innerText = "เพิ่มรายการยาใหม่";
-                document.getElementById('formRowIndex').value = "";
-                document.getElementById('formName').value = "";
-                document.getElementById('formIndication').value = "";
-                document.getElementById('formUnit').value = "";
-            } else if (action === 'edit' && itemData) {
-                document.getElementById('modalTitle').innerText = "แก้ไขรายการยา";
-                document.getElementById('formRowIndex').value = itemData.rowIndex;
-                document.getElementById('formName').value = itemData.name;
-                document.getElementById('formCategory').value = itemData.category;
-                document.getElementById('formIndication').value = itemData.indication;
-                document.getElementById('formUnit').value = itemData.unit;
+        // --- ฟังก์ชัน Manage ---
+        function renderManage() {
+            const tb = document.querySelector('#manageTable tbody'); tb.innerHTML = "";
+            globalData.forEach(item => {
+                tb.innerHTML += `<tr>
+                    <td class="fw-bold">${item.name}</td><td>${item.category}</td><td>${item.unit}</td>
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-outline-primary" onclick='openModal("edit", ${JSON.stringify(item)})'>แก้ไข</button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteItem(${item.rowIndex}, '${item.name}')">ลบ</button>
+                    </td>
+                </tr>`;
+            });
+        }
+        function openModal(act, data = null) {
+            document.getElementById('formAction').value = act;
+            if(act === 'add') {
+                document.getElementById('modalTitle').innerText = "เพิ่มยาใหม่";
+                ['formRowIndex','formName','formIndication','formUnit'].forEach(id => document.getElementById(id).value = "");
+            } else {
+                document.getElementById('modalTitle').innerText = "แก้ไข";
+                document.getElementById('formRowIndex').value = data.rowIndex;
+                document.getElementById('formName').value = data.name;
+                document.getElementById('formCategory').value = data.category;
+                document.getElementById('formIndication').value = data.indication;
+                document.getElementById('formUnit').value = data.unit;
             }
             modalInstance.show();
         }
-
         function submitItemData() {
-            const action = document.getElementById('formAction').value;
             const payload = {
-                action: action,
-                row: document.getElementById('formRowIndex').value,
-                name: document.getElementById('formName').value,
-                category: document.getElementById('formCategory').value,
-                indication: document.getElementById('formIndication').value,
-                unit: document.getElementById('formUnit').value
+                action: document.getElementById('formAction').value, row: document.getElementById('formRowIndex').value,
+                name: document.getElementById('formName').value, category: document.getElementById('formCategory').value,
+                indication: document.getElementById('formIndication').value, unit: document.getElementById('formUnit').value
             };
-
-            fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) })
-                .then(r => r.json())
-                .then(res => {
-                    modalInstance.hide();
-                    alert("บันทึกข้อมูลเรียบร้อยแล้ว!");
-                    loadData(); // รีเฟรชข้อมูลในตาราง
-                });
+            fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) }).then(r => r.json()).then(() => { modalInstance.hide(); loadData(); });
         }
-
-        function deleteItem(rowIndex, name) {
-            if(confirm(`คุณแน่ใจหรือไม่ที่จะลบ "${name}" ออกจากฐานข้อมูลถาวร?`)) {
-                fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: "delete", row: rowIndex }) })
-                    .then(r => r.json())
-                    .then(res => {
-                        alert("ลบข้อมูลสำเร็จ!");
-                        loadData(); // รีเฟรชตาราง
-                    });
-            }
+        function deleteItem(rIdx, name) {
+            if(confirm(`ลบ ${name}?`)) fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: "delete", row: rIdx }) }).then(r => r.json()).then(() => loadData());
         }
     </script>
 </body>
