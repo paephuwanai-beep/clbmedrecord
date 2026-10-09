@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบคลังยา Balance Stock</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;700&display=swap');
+        body { font-family: 'Sarabun', sans-serif; background-color: #f8f9fa; }
+        .page-section { display: none; background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 30px; }
+        .page-section.active { display: block; }
+        .nav-link.active { font-weight: bold; text-decoration: underline; text-underline-offset: 5px; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-success mb-4 sticky-top">
+        <div class="container">
+            <a class="navbar-brand" href="#"><i class="fas fa-hospital"></i> ระบบคลังยา</a>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link active" href="#" onclick="switchTab('home', this)">HOME</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#" onclick="switchTab('checkup', this)">Check up</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#" onclick="switchTab('review', this)">Review</a></li>
+                    <li class="nav-item"><a class="nav-link text-warning" href="#" onclick="switchTab('manage', this)"><i class="fas fa-cog"></i> จัดการฐานข้อมูล</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- หน้า HOME, Check up, Review ใช้โครงสร้างเดิมของคุณได้เลย (ละไว้เพื่อความกระชับ) -->
+        <div id="home" class="page-section active"><h3><i class="fas fa-home"></i> แจ้งเตือนยาหมดอายุ (รันตามโค้ดเดิม)</h3></div>
+        <div id="checkup" class="page-section"><h3><i class="fas fa-clipboard-check"></i> ตรวจนับสต๊อก (รันตามโค้ดเดิม)</h3></div>
+        <div id="review" class="page-section"><h3><i class="fas fa-list"></i> ดูรายการยา (รันตามโค้ดเดิม)</h3></div>
+
+        <!-- หน้าจัดการข้อมูล (CRUD) ที่เพิ่มเข้ามาใหม่ -->
+        <div id="manage" class="page-section">
+            <div class="d-flex justify-content-between mb-4">
+                <h3 class="text-secondary"><i class="fas fa-database"></i> จัดการรายการยา (เพิ่ม/ลบ/แก้ไข)</h3>
+                <button class="btn btn-success" onclick="openModal('add')">+ เพิ่มรายการใหม่</button>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-bordered align-middle" id="manageTable">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>รายการยา / เวชภัณฑ์</th>
+                            <th>หมวดหมู่</th>
+                            <th>หน่วยนับ</th>
+                            <th width="15%" class="text-center">จัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="4" class="text-center py-3">กำลังโหลดข้อมูล...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal สำหรับ เพิ่ม / แก้ไข รายการ -->
+    <div class="modal fade" id="itemModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="modalTitle">ฟอร์มจัดการยา</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="formRowIndex">
+                    <input type="hidden" id="formAction">
+                    <div class="mb-3"><label>ชื่อยา / เวชภัณฑ์</label><input type="text" class="form-control" id="formName"></div>
+                    <div class="mb-3"><label>หมวดหมู่</label>
+                        <select class="form-select" id="formCategory">
+                            <option value="ยาเม็ด">ยาเม็ด</option><option value="ยาน้ำ">ยาน้ำ</option>
+                            <option value="ยาใช้ภายนอก">ยาใช้ภายนอก</option><option value="ยาฉีด">ยาฉีด</option>
+                            <option value="พัสดุการแพทย์">พัสดุการแพทย์</option>
+                        </select>
+                    </div>
+                    <div class="mb-3"><label>ข้อบ่งใช้ (Indication)</label><input type="text" class="form-control" id="formIndication"></div>
+                    <div class="mb-3"><label>หน่วยนับ (เช่น เม็ด, ขวด, กล่อง)</label><input type="text" class="form-control" id="formUnit"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                    <button type="button" class="btn btn-primary" onclick="submitItemData()">บันทึกข้อมูล</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_URL = 'https://script.google.com/macros/s/AKfycbwtvfgmy7J0G0dRMENlHrV3lWPgJBcQtqa_s5yOLG4RAfKfSg61ICtUyhBnSSdcD04H5Q/exec'; // *** นำ Web App URL ของคุณมาใส่ตรงนี้ ***
+        let globalData = [];
+        let modalInstance;
+
+        function switchTab(tabId, element) {
+            document.querySelectorAll('.page-section').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            if(element) element.classList.add('active');
+        }
+
+        window.onload = function() {
+            modalInstance = new bootstrap.Modal(document.getElementById('itemModal'));
+            loadData();
+        };
+
+        function loadData() {
+            fetch(API_URL)
+                .then(res => res.json())
+                .then(data => {
+                    globalData = data.map((row, index) => ({
+                        rowIndex: index + 2,
+                        name: Object.values(row)[1] || "-",
+                        category: Object.values(row)[2] || "-",
+                        indication: Object.values(row)[3] || "-",
+                        unit: Object.values(row)[12] || "-"
+                    })).filter(item => item.name !== "-");
+                    renderManageTable();
+                });
+        }
+
+        function renderManageTable() {
+            const tbody = document.querySelector('#manageTable tbody');
+            tbody.innerHTML = "";
+            globalData.forEach(item => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="fw-bold">${item.name}</td>
+                        <td>${item.category}</td>
+                        <td>${item.unit}</td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-outline-primary" onclick='openModal("edit", ${JSON.stringify(item)})'><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteItem(${item.rowIndex}, '${item.name}')"><i class="fas fa-trash"></i></button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function openModal(action, itemData = null) {
+            document.getElementById('formAction').value = action;
+            if(action === 'add') {
+                document.getElementById('modalTitle').innerText = "เพิ่มรายการยาใหม่";
+                document.getElementById('formRowIndex').value = "";
+                document.getElementById('formName').value = "";
+                document.getElementById('formIndication').value = "";
+                document.getElementById('formUnit').value = "";
+            } else if (action === 'edit' && itemData) {
+                document.getElementById('modalTitle').innerText = "แก้ไขรายการยา";
+                document.getElementById('formRowIndex').value = itemData.rowIndex;
+                document.getElementById('formName').value = itemData.name;
+                document.getElementById('formCategory').value = itemData.category;
+                document.getElementById('formIndication').value = itemData.indication;
+                document.getElementById('formUnit').value = itemData.unit;
+            }
+            modalInstance.show();
+        }
+
+        function submitItemData() {
+            const action = document.getElementById('formAction').value;
+            const payload = {
+                action: action,
+                row: document.getElementById('formRowIndex').value,
+                name: document.getElementById('formName').value,
+                category: document.getElementById('formCategory').value,
+                indication: document.getElementById('formIndication').value,
+                unit: document.getElementById('formUnit').value
+            };
+
+            fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) })
+                .then(r => r.json())
+                .then(res => {
+                    modalInstance.hide();
+                    alert("บันทึกข้อมูลเรียบร้อยแล้ว!");
+                    loadData(); // รีเฟรชข้อมูลในตาราง
+                });
+        }
+
+        function deleteItem(rowIndex, name) {
+            if(confirm(`คุณแน่ใจหรือไม่ที่จะลบ "${name}" ออกจากฐานข้อมูลถาวร?`)) {
+                fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: "delete", row: rowIndex }) })
+                    .then(r => r.json())
+                    .then(res => {
+                        alert("ลบข้อมูลสำเร็จ!");
+                        loadData(); // รีเฟรชตาราง
+                    });
+            }
+        }
+    </script>
+</body>
+</html>
