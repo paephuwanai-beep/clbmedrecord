@@ -44,7 +44,6 @@
 </head>
 <body>
 
-    <!-- เมนูด้านบน -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-success mb-3 sticky-top desktop-nav shadow-sm">
         <div class="container">
             <a class="navbar-brand fw-bold" href="#"><i class="fas fa-hospital"></i> ระบบคลังยา</a>
@@ -61,7 +60,6 @@
     </nav>
 
     <div class="container relative">
-        
         <div id="home" class="page-section active">
             <h4 class="mb-4 text-secondary fw-bold"><i class="fas fa-bell text-warning"></i> แจ้งเตือนสถานะยา</h4>
             <div class="row g-3">
@@ -119,7 +117,7 @@
         </div>
     </div>
 
-    <!-- Bottom Nav (Mobile) -->
+    <!-- Bottom Nav -->
     <div class="bottom-nav no-print">
         <a href="#" class="nav-item active" onclick="switchTab('home')" data-tab="home"><i class="fas fa-home"></i><span class="d-none d-sm-block">Home</span></a>
         <a href="#" class="nav-item" onclick="switchTab('checkup', true)" data-tab="checkup"><i class="fas fa-clipboard-check"></i><span class="d-none d-sm-block">Check up</span></a>
@@ -167,7 +165,6 @@
         let globalData = [], historyData = [];
         let currentEditHistRow = null; 
         let currentEditHistData = null;
-
         let modalInstance, historyModalInstance, toastInstance;
 
         const catOrder = { "ยาเม็ด": 1, "ยาน้ำ": 2, "ยาฉีด": 3, "ยาใช้ภายนอก": 4, "สารน้ำและเวชภัณฑ์อื่นๆ": 5, "พัสดุการแพทย์": 6 };
@@ -198,16 +195,12 @@
             if(mN) mN.classList.add('active');
             window.scrollTo(0, 0);
 
-            // ถ้าจงใจกดปุ่มมาหน้า Checkup เอง (ไม่ได้มาจากประวัติ) และมีประวัติค้างอยู่ ให้รีเซ็ตค่า
             if(tabId === 'checkup' && isManual && currentEditHistRow) {
-                if(confirm("คุณกำลังแก้ไขประวัติค้างไว้ ต้องการล้างค่าเพื่อเริ่มนับใหม่ใช่หรือไม่?")) {
-                    currentEditHistRow = null;
-                    currentEditHistData = null;
+                if(confirm("คุณกำลังแก้ไขประวัติค้างไว้ ต้องการล้างค่าเพื่อเริ่มนับใหม่รอบปัจจุบันใช่หรือไม่?")) {
+                    currentEditHistRow = null; currentEditHistData = null;
                     document.getElementById('btnSaveAll').innerHTML = `<i class="fas fa-save me-2"></i> ยืนยันการตรวจนับ`;
                     document.getElementById('filterCheckup').value = "ทั้งหมด";
                     renderCheckup();
-                } else {
-                    // ปล่อยค่าไว้เหมือนเดิม
                 }
             }
         }
@@ -230,18 +223,13 @@
         function markChanged(rIdx, type) { 
             const el = document.getElementById(`row_${type}_${rIdx}`); 
             if(el) el.classList.add('row-changed'); 
-            
-            // แบ็คอัพค่าไว้เผื่อมีการเปลี่ยน Filter ไปมา ค่าที่พิมพ์จะได้ไม่หาย
             if(currentEditHistData) {
                 let c = document.getElementById(`c_${type}_${rIdx}`).value;
                 let em = document.getElementById(`em_${type}_${rIdx}`).value;
                 let ey = document.getElementById(`ey_${type}_${rIdx}`).value;
                 let existing = currentEditHistData.find(i => i.row === rIdx);
-                if(existing) {
-                    existing.newCount = c; existing.newExp = `${em} ${ey}`.trim();
-                } else {
-                    currentEditHistData.push({ row: rIdx, newCount: c, newExp: `${em} ${ey}`.trim() });
-                }
+                if(existing) { existing.newCount = c; existing.newExp = `${em} ${ey}`.trim(); } 
+                else { currentEditHistData.push({ row: rIdx, newCount: c, newExp: `${em} ${ey}`.trim() }); }
             }
         }
 
@@ -276,31 +264,25 @@
             const mContainer = document.getElementById('checkupMobile'); mContainer.innerHTML = "";
             let displayData = filter !== "ทั้งหมด" ? globalData.filter(i => i.category === filter) : globalData;
 
-            // จัดการข้อมูลที่เคยนับไว้ในอดีต (ให้แสดงคืนค่าเดิมเวลาแก้ไขประวัติ)
             let editMap = {};
-            if (currentEditHistRow && currentEditHistData) {
-                currentEditHistData.forEach(i => { editMap[i.row] = i; });
-            }
+            if (currentEditHistRow && currentEditHistData) { currentEditHistData.forEach(i => { editMap[i.row] = i; }); }
 
             displayData.forEach(item => {
                 const color = catColors[item.category] || { badge: "bg-dark", border: "border-dark" };
                 const badgeHtml = `<span class="badge ${color.badge} mt-1">${item.category}</span>`;
                 
                 let valCount = "", valExpM = "", valExpY = "", isChangedClass = "";
-
-                // ถ้าแถวนี้มีข้อมูลประวัติที่กำลังแก้ไข ให้ยัดค่ากลับคืน
                 if (editMap[item.rowIndex]) {
                     valCount = editMap[item.rowIndex].newCount;
                     let ex = extractExp(editMap[item.rowIndex].newExp);
                     valExpM = ex.m; valExpY = ex.y;
-                    isChangedClass = "row-changed"; // ไฮไลท์สีฟ้า
+                    isChangedClass = "row-changed"; 
                 } else {
                     let ex = extractExp(item.expText);
                     valExpM = ex.m; valExpY = ex.y;
                 }
                 
                 tBody.innerHTML += `<tr id="row_d_${item.rowIndex}" class="${isChangedClass}"><td><div class="fw-bold">${item.name}</div>${badgeHtml}</td><td><span class="badge bg-secondary">${item.stock} ${item.unit}</span></td><td><input type="number" id="c_d_${item.rowIndex}" class="form-control text-center fw-bold text-primary" placeholder="นับได้" value="${valCount}" oninput="markChanged(${item.rowIndex}, 'd')"></td><td><div class="input-group"><select id="em_d_${item.rowIndex}" class="form-select" onchange="markChanged(${item.rowIndex}, 'd')">${buildMonthDropdown(valExpM)}</select><select id="ey_d_${item.rowIndex}" class="form-select" onchange="markChanged(${item.rowIndex}, 'd')"><option value="">ปี พ.ศ.</option><option value="${valExpY}" selected>${valExpY?("25"+valExpY):""}</option>${yearOptions}</select></div></td><td class="text-center"><button class="btn btn-outline-primary btn-sm rounded-circle" title="เพิ่มล็อต" onclick="addLot(${item.rowIndex})"><i class="fas fa-plus"></i></button></td></tr>`;
-
                 mContainer.innerHTML += `<div class="mobile-card border-start ${color.border} ${isChangedClass}" id="row_m_${item.rowIndex}"><div class="d-flex justify-content-between align-items-start mb-2"><div><div class="fw-bold text-dark">${item.name}</div>${badgeHtml}</div><span class="badge bg-light text-secondary border">เดิม: ${item.stock} ${item.unit}</span></div><div class="row g-2 mb-2"><div class="col-12"><input type="number" id="c_m_${item.rowIndex}" class="form-control text-center fw-bold text-primary" placeholder="นับจริง (${item.unit})" value="${valCount}" oninput="markChanged(${item.rowIndex}, 'm')"></div><div class="col-6"><select id="em_m_${item.rowIndex}" class="form-select" onchange="markChanged(${item.rowIndex}, 'm')">${buildMonthDropdown(valExpM)}</select></div><div class="col-6"><select id="ey_m_${item.rowIndex}" class="form-select" onchange="markChanged(${item.rowIndex}, 'm')"><option value="">ปี พ.ศ.</option><option value="${valExpY}" selected>${valExpY?("25"+valExpY):""}</option>${yearOptions}</select></div></div><button class="btn btn-outline-primary btn-sm w-100 mt-2 fw-bold" onclick="addLot(${item.rowIndex})"><i class="fas fa-plus-circle"></i> เพิ่มแถวล็อตใหม่</button></div>`;
             });
         }
@@ -318,19 +300,12 @@
             });
 
             let payload = { updates: updates };
-
-            // กรณีบันทึกทับประวัติเดิม
             if (currentEditHistRow) {
-                payload.action = "edit_history";
-                payload.row = currentEditHistRow;
-            } 
-            // กรณีบันทึกรอบใหม่ปกติ
-            else {
+                payload.action = "edit_history"; payload.row = currentEditHistRow;
+            } else {
                 let user = prompt("กรุณากรอกชื่อ/รหัส ผู้บันทึกการตรวจนับ (หรือกดยกเลิก):");
-                if(user === null) return;
-                if(user.trim() === "") user = "ไม่ระบุชื่อ";
-                payload.action = "update_stock_batch";
-                payload.user = user;
+                if(user === null) return; if(user.trim() === "") user = "ไม่ระบุชื่อ";
+                payload.action = "update_stock_batch"; payload.user = user;
             }
             
             const btn = document.getElementById('btnSaveAll'); btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> กำลังบันทึก...`; btn.disabled = true;
@@ -339,7 +314,7 @@
                 if(res.status === 'error') { alert("เกิดข้อผิดพลาด: " + res.message); } 
                 else { 
                     showToast(currentEditHistRow ? `แก้ไขประวัติและอัปเดตยอดเรียบร้อย!` : `บันทึกการตรวจนับลงประวัติเรียบร้อย!`); 
-                    currentEditHistRow = null; currentEditHistData = null; // คืนค่าตัวแปร
+                    currentEditHistRow = null; currentEditHistData = null; 
                     document.getElementById('btnSaveAll').innerHTML = `<i class="fas fa-save me-2"></i> ยืนยันการตรวจนับ`;
                     document.getElementById('filterCheckup').value = "ทั้งหมด";
                     loadData(); 
@@ -347,6 +322,7 @@
                 btn.disabled = false;
             }).catch(e => { alert("Error Server"); btn.innerHTML = `<i class="fas fa-save me-2"></i> ยืนยันการตรวจนับ`; btn.disabled = false; });
         }
+
         function addLot(rowIndex) {
             const item = globalData.find(i => i.rowIndex === rowIndex); if(!item) return;
             if(confirm(`เพิ่มแถวใหม่สำหรับยา "${item.name}" ใช่หรือไม่?`)) {
@@ -383,43 +359,66 @@
             if(historyData.length === 0) { container.innerHTML = "<div class='col-12 text-center text-muted py-5'>ยังไม่มีประวัติการบันทึก</div>"; return; }
             
             historyData.forEach(hist => {
-                const date = formatGoogleDate(Object.values(hist)[0]); const time = formatGoogleTime(Object.values(hist)[1]); const user = Object.values(hist)[2];
+                // แก้ไขการดึงข้อมูลจาก Key ป้องกันปัญหาคอลัมน์สลับ
+                const date = formatGoogleDate(hist["วันที่"] || ""); 
+                const time = formatGoogleTime(hist["เวลา"] || ""); 
+                const user = hist["ผู้บันทึก"] || "ไม่ระบุ";
+                
                 container.innerHTML += `<div class="col-md-6 col-lg-4 mb-3"><div class="card shadow-sm border-0 h-100" style="border-radius:12px; cursor:pointer;" onclick='viewHistory(${JSON.stringify(hist)})'><div class="card-body"><div class="d-flex justify-content-between mb-2"><span class="badge bg-dark"><i class="fas fa-calendar-day"></i> ${date}</span><span class="badge bg-secondary"><i class="fas fa-clock"></i> ${time}</span></div><h6 class="fw-bold text-primary mt-3"><i class="fas fa-user-edit"></i> ผู้บันทึก: ${user}</h6><div class="text-muted small mt-2 text-primary"><i class="fas fa-hand-pointer"></i> คลิกเพื่อดูรายการ หรือแก้ไข...</div></div></div></div>`;
             });
         }
         
         function viewHistory(histObj) {
-            const date = formatGoogleDate(Object.values(histObj)[0]); const time = formatGoogleTime(Object.values(histObj)[1]);
-            const user = Object.values(histObj)[2]; const jsonData = Object.values(histObj)[3];
-            let items = []; try { items = JSON.parse(jsonData); } catch(e){}
+            const date = formatGoogleDate(histObj["วันที่"] || ""); 
+            const time = formatGoogleTime(histObj["เวลา"] || "");
+            const user = histObj["ผู้บันทึก"] || "ไม่ระบุ"; 
+            const jsonData = histObj["ข้อมูล"] || "[]";
+            
+            let items = []; 
+            try { items = JSON.parse(jsonData); if(!Array.isArray(items)) items = []; } catch(e){ items = []; }
 
             let html = `<div class="alert alert-secondary mb-3"><b><i class="fas fa-user"></i> ผู้บันทึก:</b> ${user} <br><b><i class="fas fa-calendar"></i> เวลา:</b> ${date} ${time}</div>`;
             html += `<table class="table table-bordered align-middle"><thead class="table-light"><tr><th width="40%">รายการยา</th><th width="30%" class="text-center">ยอดนับ</th><th width="30%" class="text-center">วันหมดอายุ</th></tr></thead><tbody>`;
-            if(items.length === 0) { html += `<tr><td colspan="3" class="text-center text-muted py-4"><i class="fas fa-check-circle text-success fs-4 mb-2"></i><br>ตรวจสอบยอดแล้ว (ไม่มีการเปลี่ยนแปลง)</td></tr>`; } 
-            else { items.forEach((i, idx) => { html += `<tr><td class="fw-bold">${i.name || "-"} <div class="text-muted small">(${i.unit||""})</div></td><td class="text-center text-success fw-bold">${i.newCount}</td><td class="text-center">${i.newExp || "-"}</td></tr>`; }); }
+            
+            if(items.length === 0) {
+                html += `<tr><td colspan="3" class="text-center text-muted py-4"><i class="fas fa-check-circle text-success fs-4 mb-2"></i><br>ตรวจสอบยอดแล้ว (ไม่มีการเปลี่ยนแปลง)</td></tr>`;
+            } else {
+                items.forEach((i) => { 
+                    html += `<tr><td class="fw-bold">${i.name || "-"} <div class="text-muted small">(${i.unit||""})</div></td><td class="text-center text-success fw-bold">${i.newCount}</td><td class="text-center">${i.newExp || "-"}</td></tr>`; 
+                });
+            }
             html += `</tbody></table>`;
             document.getElementById('historyModalBody').innerHTML = html;
             
+            // ปุ่มลบประวัติ
             document.getElementById('btnDeleteHistory').onclick = function() {
-                if(confirm(`ต้องการลบประวัติของ ${user} ถาวรหรือไม่?`)) { fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: "delete_history", row: histObj.rowIndex }) }).then(r=>r.json()).then(()=>{ historyModalInstance.hide(); showToast('ลบประวัติสำเร็จ'); loadData(); }); }
+                if(confirm(`ต้องการลบประวัติของ ${user} ถาวรหรือไม่?`)) { 
+                    fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: "delete_history", row: histObj.rowIndex }) })
+                    .then(r=>r.json()).then(()=>{ historyModalInstance.hide(); showToast('ลบประวัติสำเร็จ'); loadData(); }); 
+                }
             };
 
-            // กดปุ่มเพื่อให้วิ่งไปหน้า Check up พร้อมดึงข้อมูลประวัติ
+            // ปุ่มไปแก้ไขที่หน้า Check up (เพิ่มระบบ Timeout แก้บั๊กหน้าค้าง)
             document.getElementById('btnGoCheckup').onclick = function() {
                 historyModalInstance.hide();
-                currentEditHistRow = histObj.rowIndex; // บันทึกว่ากำลังแก้แถวไหน
-                currentEditHistData = items; // ดึงข้อมูลตัวเลขที่นับใส่ตัวแปร
                 
-                document.getElementById('filterCheckup').value = "ทั้งหมด"; // ล้างฟิลเตอร์ก่อน
-                renderCheckup(); // สั่งให้สร้างตารางใหม่ (ซึ่งจะเอา currentEditHistData ไปยัดให้เองอัตโนมัติ)
-                switchTab('checkup'); // เด้งไปหน้า Check up
-                
-                document.getElementById('btnSaveAll').innerHTML = `<i class="fas fa-save me-2"></i> บันทึกการแก้ไขประวัติ`;
-                showToast("โหลดข้อมูลประวัติลงในฟอร์มแล้ว", "info");
+                setTimeout(() => {
+                    currentEditHistRow = histObj.rowIndex; 
+                    currentEditHistData = items; 
+                    
+                    document.getElementById('filterCheckup').value = "ทั้งหมด"; 
+                    renderCheckup(); 
+                    switchTab('checkup'); 
+                    
+                    document.getElementById('btnSaveAll').innerHTML = `<i class="fas fa-save me-2"></i> บันทึกการแก้ไขประวัติ`;
+                    showToast("โหลดข้อมูลที่เคยนับไว้ลงในฟอร์มแล้ว", "info");
+                }, 300); // รอให้ Modal เฟดปิดจนสนิทก่อนเปลี่ยนหน้า
             };
+
             historyModalInstance.show();
         }
 
+        // --- 5. หน้า Manage ---
         function renderManage() {
             const tBody = document.querySelector('#manageTable tbody'); tBody.innerHTML = "";
             const mContainer = document.getElementById('manageMobile'); mContainer.innerHTML = "";
