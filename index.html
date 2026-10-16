@@ -15,7 +15,7 @@
         .desktop-nav .nav-link.active { font-weight: bold; text-decoration: underline; text-underline-offset: 5px; }
         .row-changed { background-color: #e6f7ff !important; border-left: 5px solid #0dcaf0 !important; transition: 0.3s; }
         .fab-save { position: sticky; bottom: 20px; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.2); border-radius: 50px; font-weight: bold; }
-        .new-lot-row { animation: slideDown 0.3s ease-out; background-color: #fffaf0; border-left: 4px solid #ffc107; }
+        .new-lot-row { animation: slideDown 0.3s ease-out; background-color: #fffaf0; border-left: 4px solid #ffc107 !important; }
         @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 
         @media (max-width: 767px) {
@@ -162,7 +162,7 @@
         // ==========================================
         // 🛑 นำ URL ของ Apps Script มาวางตรงนี้
         // ==========================================
-        const API_URL = 'https://script.google.com/macros/s/AKfycbwdW361oMxOMXL0Ho4LNRWbI5-W2XnbGb5upJfEIHqrdbcJfKXY8o9sUNyUqZuuahASGg/exec'; 
+        const API_URL = 'https://script.google.com/macros/s/AKfycbx52VhGsyPFMP7c0sGwxsdDH_CZitAjK9QwyXUJ4uwTHyGOAYFNj1vLtTOB79f-Ys_dnw/exec'; 
 
         let globalData = [], historyData = [];
         let currentEditHistRow = null; 
@@ -234,13 +234,20 @@
         function markChanged(rIdx, type) { 
             const el = document.getElementById(`row_${type}_${rIdx}`); 
             if(el) el.classList.add('row-changed'); 
+            
+            // แบ็คอัพค่ากันหลุดเวลาสลับ Filter
             if(currentEditHistData) {
-                let c = document.getElementById(`c_${type}_${rIdx}`).value;
-                let em = document.getElementById(`em_${type}_${rIdx}`).value;
-                let ey = document.getElementById(`ey_${type}_${rIdx}`).value;
+                let cD = document.getElementById(`c_d_${rIdx}`); let cM = document.getElementById(`c_m_${rIdx}`);
+                let emD = document.getElementById(`em_d_${rIdx}`); let emM = document.getElementById(`em_m_${rIdx}`);
+                let eyD = document.getElementById(`ey_d_${rIdx}`); let eyM = document.getElementById(`ey_m_${rIdx}`);
+                
+                let cVal = (cD && cD.value !== "") ? cD.value : ((cM && cM.value !== "") ? cM.value : "");
+                let emVal = (cD && cD.value !== "" && emD) ? emD.value : ((cM && cM.value !== "" && emM) ? emM.value : "");
+                let eyVal = (cD && cD.value !== "" && eyD) ? eyD.value : ((cM && cM.value !== "" && eyM) ? eyM.value : "");
+                
                 let existing = currentEditHistData.find(i => i.row === rIdx);
-                if(existing) { existing.newCount = c; existing.newExp = `${em} ${ey}`.trim(); } 
-                else { currentEditHistData.push({ row: rIdx, newCount: c, newExp: `${em} ${ey}`.trim() }); }
+                if(existing) { existing.newCount = cVal; existing.newExp = `${emVal} ${eyVal}`.trim(); } 
+                else { currentEditHistData.push({ row: rIdx, newCount: cVal, newExp: `${emVal} ${eyVal}`.trim() }); }
             }
         }
 
@@ -293,7 +300,7 @@
                     valExpM = ex.m; valExpY = ex.y;
                 }
                 
-                // แก้บั๊กการแทรกแถวใหม่ โดยให้ append HTML แทนการใช้ tbody ซ้อน tbody
+                // แก้บั๊กการแทรกแถวบน PC 
                 tBody.innerHTML += `<tr id="row_d_${item.rowIndex}" class="${isChangedClass}">
                     <td><div class="fw-bold">${item.name}</div>${badgeHtml}</td>
                     <td><span class="badge bg-secondary">${item.stock} ${item.unit}</span></td>
@@ -302,6 +309,7 @@
                     <td class="text-center"><button class="btn btn-outline-primary btn-sm rounded-circle" title="เพิ่มล็อตที่หมดอายุไม่พร้อมกัน" onclick="addDynamicLot(${item.rowIndex}, 'd')"><i class="fas fa-plus"></i></button></td>
                 </tr>`;
 
+                // การ์ดมือถือ (มีกล่องรองรับ dynamic)
                 mContainer.innerHTML += `<div class="mobile-card border-start ${color.border} ${isChangedClass}" id="row_m_${item.rowIndex}">
                     <div class="d-flex justify-content-between align-items-start mb-2">
                         <div><div class="fw-bold text-dark">${item.name}</div>${badgeHtml}</div>
@@ -318,7 +326,7 @@
             });
         }
 
-        // ฟังชันเพิ่มล็อตที่แก้ไขให้ปลอดภัย 100% (insertAdjacentHTML)
+        // ฟังก์ชันเพิ่มล็อตที่แก้ไขให้แข็งแกร่ง (ดึงอ่านค่าได้อย่างปลอดภัย 100%)
         function addDynamicLot(rIdx, type) {
             if(!dynamicLots[rIdx]) dynamicLots[rIdx] = [];
             const newLotId = dynamicLots[rIdx].length + 1;
@@ -334,10 +342,10 @@
                     <td class="text-center"><button class="btn btn-outline-danger btn-sm rounded-circle" onclick="document.getElementById('dyn_row_d_${rIdx}_${newLotId}').remove()"><i class="fas fa-minus"></i></button></td>
                 </tr>`;
                 
-                // หาบรรทัดล่าสุดของ item นี้เพื่อแทรกต่อท้าย
+                // หาแถวล่างสุดของยานั้นๆ เพื่อแทรกต่อท้ายได้เป๊ะๆ
                 let insertAfterElement = document.getElementById(`row_d_${rIdx}`);
                 for(let i = newLotId - 1; i >= 1; i--) {
-                    const existingLot = document.getElementById(`dyn_row_d_${rIdx}_${i}`);
+                    let existingLot = document.getElementById(`dyn_row_d_${rIdx}_${i}`);
                     if(existingLot) { insertAfterElement = existingLot; break; }
                 }
                 if(insertAfterElement) { insertAfterElement.insertAdjacentHTML('afterend', html); }
@@ -359,32 +367,50 @@
 
         function saveAllStock() {
             let updates = [];
+            
+            // กวาดข้อมูลทั้งหน้า (อ่านค่าทั้งฝั่ง PC และ Mobile ควบคู่กันไป เพื่อป้องกันการดึงค่าแล้วได้ความว่างเปล่า)
             globalData.forEach(item => {
                 let rIdx = item.rowIndex;
-                let c = document.getElementById(`c_d_${rIdx}`) || document.getElementById(`c_m_${rIdx}`);
-                let em = document.getElementById(`em_d_${rIdx}`) || document.getElementById(`em_m_${rIdx}`);
-                let ey = document.getElementById(`ey_d_${rIdx}`) || document.getElementById(`ey_m_${rIdx}`);
+                let cD = document.getElementById(`c_d_${rIdx}`); let cM = document.getElementById(`c_m_${rIdx}`);
+                let emD = document.getElementById(`em_d_${rIdx}`); let emM = document.getElementById(`em_m_${rIdx}`);
+                let eyD = document.getElementById(`ey_d_${rIdx}`); let eyM = document.getElementById(`ey_m_${rIdx}`);
                 
-                if (c && c.value !== "") {
-                    let expStr = (em && ey && em.value && ey.value) ? `${em.value} ${ey.value}` : "";
-                    updates.push({ row: rIdx, name: item.name, category: item.category, indication: item.indication, unit: item.unit, newCount: c.value, newExp: expStr, isNewLot: false });
+                // ดึงค่าจากตัวไหนก็ได้ที่มีการพิมพ์
+                let cVal = (cD && cD.value !== "") ? cD.value : ((cM && cM.value !== "") ? cM.value : "");
+                let emVal = (cD && cD.value !== "" && emD) ? emD.value : ((cM && cM.value !== "" && emM) ? emM.value : "");
+                let eyVal = (cD && cD.value !== "" && eyD) ? eyD.value : ((cM && cM.value !== "" && eyM) ? eyM.value : "");
+                
+                if (cVal !== "") {
+                    let expStr = (emVal && eyVal) ? `${emVal} ${eyVal}` : "";
+                    updates.push({ row: rIdx, name: item.name, category: item.category, indication: item.indication, unit: item.unit, newCount: cVal, newExp: expStr, isNewLot: false });
                 }
 
+                // กวาดข้อมูลจากกล่องล็อตใหม่ที่กดเพิ่ม
                 if(dynamicLots[rIdx]) {
                     dynamicLots[rIdx].forEach(lotId => {
-                        let dynC = document.getElementById(`dyn_c_d_${rIdx}_${lotId}`) || document.getElementById(`dyn_c_m_${rIdx}_${lotId}`);
-                        let dynEM = document.getElementById(`dyn_em_d_${rIdx}_${lotId}`) || document.getElementById(`dyn_em_m_${rIdx}_${lotId}`);
-                        let dynEY = document.getElementById(`dyn_ey_d_${rIdx}_${lotId}`) || document.getElementById(`dyn_ey_m_${rIdx}_${lotId}`);
+                        let dynCD = document.getElementById(`dyn_c_d_${rIdx}_${lotId}`); let dynCM = document.getElementById(`dyn_c_m_${rIdx}_${lotId}`);
+                        let dynEMD = document.getElementById(`dyn_em_d_${rIdx}_${lotId}`); let dynEMM = document.getElementById(`dyn_em_m_${rIdx}_${lotId}`);
+                        let dynEYD = document.getElementById(`dyn_ey_d_${rIdx}_${lotId}`); let dynEYM = document.getElementById(`dyn_ey_m_${rIdx}_${lotId}`);
                         
-                        if (dynC && dynC.value !== "") {
-                            let expStr = (dynEM && dynEY && dynEM.value && dynEY.value) ? `${dynEM.value} ${dynEY.value}` : "";
-                            updates.push({ parentRow: rIdx, name: item.name, category: item.category, indication: item.indication, unit: item.unit, newCount: dynC.value, newExp: expStr, isNewLot: true });
+                        let dynCVal = (dynCD && dynCD.value !== "") ? dynCD.value : ((dynCM && dynCM.value !== "") ? dynCM.value : "");
+                        let dynEMVal = (dynCD && dynCD.value !== "" && dynEMD) ? dynEMD.value : ((dynCM && dynCM.value !== "" && dynEMM) ? dynEMM.value : "");
+                        let dynEYVal = (dynCD && dynCD.value !== "" && dynEYD) ? dynEYD.value : ((dynCM && dynCM.value !== "" && dynEYM) ? dynEYM.value : "");
+                        
+                        // ถ้ากรอกกล่องล็อตใหม่ (ไม่ว่างเปล่า) 
+                        if (dynCVal !== "") {
+                            let dynExpStr = (dynEMVal && dynEYVal) ? `${dynEMVal} ${dynEYVal}` : "";
+                            updates.push({ 
+                                parentRow: rIdx, name: item.name, category: item.category, indication: item.indication, unit: item.unit, 
+                                newCount: dynCVal, newExp: dynExpStr, isNewLot: true 
+                            });
                         }
                     });
                 }
             });
 
             let payload = { updates: updates };
+            
+            // กรณีบันทึกทับประวัติเดิม
             if (currentEditHistRow) {
                 payload.action = "edit_history"; payload.row = currentEditHistRow;
             } else {
@@ -399,7 +425,7 @@
                 if(res.status === 'error') { alert("เกิดข้อผิดพลาด: " + res.message); } 
                 else { 
                     showToast(currentEditHistRow ? `แก้ไขประวัติและอัปเดตยอดเรียบร้อย!` : `บันทึกการตรวจนับและล็อตใหม่เรียบร้อย!`); 
-                    currentEditHistRow = null; currentEditHistData = null; dynamicLots = {};
+                    currentEditHistRow = null; currentEditHistData = null; dynamicLots = {}; // รีเซ็ตตัวแปรให้สะอาด
                     document.getElementById('btnSaveAll').innerHTML = `<i class="fas fa-save me-2"></i> ยืนยันการตรวจนับ`;
                     document.getElementById('filterCheckup').value = "ทั้งหมด";
                     loadData(); 
