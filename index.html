@@ -15,6 +15,8 @@
         .desktop-nav .nav-link.active { font-weight: bold; text-decoration: underline; text-underline-offset: 5px; }
         .row-changed { background-color: #e6f7ff !important; border-left: 5px solid #0dcaf0 !important; transition: 0.3s; }
         .fab-save { position: sticky; bottom: 20px; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.2); border-radius: 50px; font-weight: bold; }
+        .new-lot-row { animation: slideDown 0.3s ease-out; background-color: #fff9e6; }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 
         @media (max-width: 767px) {
             body { padding-bottom: 80px; background-color: #f0f2f5; }
@@ -160,11 +162,13 @@
         // ==========================================
         // 🛑 นำ URL ของ Apps Script มาวางตรงนี้
         // ==========================================
-        const API_URL = 'https://script.google.com/macros/s/AKfycbw5co5zVTl7YHbFjmYWh8_hhXWSJThze_Z2bXZkMRpg3NGwCW7Q1XSjONWnHvVuDE9I4g/exec'; 
+        const API_URL = 'https://script.google.com/macros/s/AKfycbwdW361oMxOMXL0Ho4LNRWbI5-W2XnbGb5upJfEIHqrdbcJfKXY8o9sUNyUqZuuahASGg/exec'; 
 
         let globalData = [], historyData = [];
         let currentEditHistRow = null; 
         let currentEditHistData = null;
+        let dynamicLots = {}; // เก็บค่าช่องล็อตใหม่ที่งอกขึ้นมา { "2": [1, 2], "3": [1] }
+
         let modalInstance, historyModalInstance, toastInstance;
 
         const catOrder = { "ยาเม็ด": 1, "ยาน้ำ": 2, "ยาฉีด": 3, "ยาใช้ภายนอก": 4, "สารน้ำและเวชภัณฑ์อื่นๆ": 5, "พัสดุการแพทย์": 6 };
@@ -200,6 +204,7 @@
                     currentEditHistRow = null; currentEditHistData = null;
                     document.getElementById('btnSaveAll').innerHTML = `<i class="fas fa-save me-2"></i> ยืนยันการตรวจนับ`;
                     document.getElementById('filterCheckup').value = "ทั้งหมด";
+                    dynamicLots = {}; // เคลียร์ล็อตที่เพิ่มมา
                     renderCheckup();
                 }
             }
@@ -236,28 +241,7 @@
         function extractExp(expText) { let m = "", y = ""; if(expText && expText !== "-") { let parts = expText.split(" "); if(parts.length >= 2) { m = parts[0]; y = parts[parts.length-1]; } else { m = expText; } } return {m, y}; }
         function buildMonthDropdown(selectedM) { let html = `<option value="">เดือน</option>`; months.forEach(mo => html += `<option value="${mo}" ${selectedM===mo ? 'selected':''}>${mo}</option>`); return html; }
 
-        // --- 1. หน้า Home ---
-        function renderHome() {
-            const nList = document.getElementById('nearExpireList'); const eList = document.getElementById('expiredList');
-            nList.innerHTML = ""; eList.innerHTML = ""; let nC = 0, eC = 0; const now = new Date(); const cY = now.getFullYear() + 543; const cM = now.getMonth() + 1;
-            globalData.forEach(item => {
-                const d = parseExpireDate(String(item.expText)); if(!d) return;
-                const diff = ((d.year - cY) * 12) + (d.month - cM);
-                const html = `<li class="list-group-item d-flex justify-content-between align-items-center"><span class="fw-bold" style="font-size:0.9rem;">${item.name}</span><span class="badge ${diff < 0 ? 'bg-danger' : 'bg-warning text-dark'} rounded-pill">${item.expText}</span></li>`;
-                if(diff < 0) { eList.innerHTML += html; eC++; } else if(diff >= 0 && diff <= 1) { nList.innerHTML += html; nC++; }
-            });
-            if(!nC) nList.innerHTML = "<li class='list-group-item text-success small'><i class='fas fa-check-circle'></i> ไม่มียาใกล้หมดอายุ</li>";
-            if(!eC) eList.innerHTML = "<li class='list-group-item text-success small'><i class='fas fa-check-circle'></i> ไม่มียาหมดอายุตกค้าง</li>";
-        }
-        function parseExpireDate(expStr) {
-            if(!expStr || expStr === "-") return null;
-            const mTH = {"ม.ค.":1,"ก.พ.":2,"มี.ค.":3,"เม.ย.":4,"พ.ค.":5,"มิ.ย.":6,"ก.ค.":7,"ส.ค.":8,"ก.ย.":9,"ต.ค.":10,"พ.ย.":11,"ธ.ค.":12};
-            let m = 12; for(let k in mTH) if(expStr.replace(/\s/g, "").includes(k.replace(".",""))) { m = mTH[k]; break; }
-            let yMatch = expStr.match(/\d{2,4}/); let y = 9999;
-            if(yMatch) { y = parseInt(yMatch[0]); if(y < 100) y += 2500; else if(y < 2500) y += 543; } return { year: y, month: m };
-        }
-
-        // --- 2. หน้า Check Up ---
+        // --- หน้า Check Up ---
         function renderCheckup() {
             const filter = document.getElementById('filterCheckup').value;
             const tBody = document.querySelector('#checkupTable tbody'); tBody.innerHTML = "";
@@ -282,20 +266,94 @@
                     valExpM = ex.m; valExpY = ex.y;
                 }
                 
-                tBody.innerHTML += `<tr id="row_d_${item.rowIndex}" class="${isChangedClass}"><td><div class="fw-bold">${item.name}</div>${badgeHtml}</td><td><span class="badge bg-secondary">${item.stock} ${item.unit}</span></td><td><input type="number" id="c_d_${item.rowIndex}" class="form-control text-center fw-bold text-primary" placeholder="นับได้" value="${valCount}" oninput="markChanged(${item.rowIndex}, 'd')"></td><td><div class="input-group"><select id="em_d_${item.rowIndex}" class="form-select" onchange="markChanged(${item.rowIndex}, 'd')">${buildMonthDropdown(valExpM)}</select><select id="ey_d_${item.rowIndex}" class="form-select" onchange="markChanged(${item.rowIndex}, 'd')"><option value="">ปี พ.ศ.</option><option value="${valExpY}" selected>${valExpY?("25"+valExpY):""}</option>${yearOptions}</select></div></td><td class="text-center"><button class="btn btn-outline-primary btn-sm rounded-circle" title="เพิ่มล็อต" onclick="addLot(${item.rowIndex})"><i class="fas fa-plus"></i></button></td></tr>`;
-                mContainer.innerHTML += `<div class="mobile-card border-start ${color.border} ${isChangedClass}" id="row_m_${item.rowIndex}"><div class="d-flex justify-content-between align-items-start mb-2"><div><div class="fw-bold text-dark">${item.name}</div>${badgeHtml}</div><span class="badge bg-light text-secondary border">เดิม: ${item.stock} ${item.unit}</span></div><div class="row g-2 mb-2"><div class="col-12"><input type="number" id="c_m_${item.rowIndex}" class="form-control text-center fw-bold text-primary" placeholder="นับจริง (${item.unit})" value="${valCount}" oninput="markChanged(${item.rowIndex}, 'm')"></div><div class="col-6"><select id="em_m_${item.rowIndex}" class="form-select" onchange="markChanged(${item.rowIndex}, 'm')">${buildMonthDropdown(valExpM)}</select></div><div class="col-6"><select id="ey_m_${item.rowIndex}" class="form-select" onchange="markChanged(${item.rowIndex}, 'm')"><option value="">ปี พ.ศ.</option><option value="${valExpY}" selected>${valExpY?("25"+valExpY):""}</option>${yearOptions}</select></div></div><button class="btn btn-outline-primary btn-sm w-100 mt-2 fw-bold" onclick="addLot(${item.rowIndex})"><i class="fas fa-plus-circle"></i> เพิ่มแถวล็อตใหม่</button></div>`;
+                // ตาราง PC (เพิ่ม id ให้ tbody เพื่อแทรกล็อตใหม่)
+                tBody.innerHTML += `<tr id="row_d_${item.rowIndex}" class="${isChangedClass}">
+                    <td><div class="fw-bold">${item.name}</div>${badgeHtml}</td>
+                    <td><span class="badge bg-secondary">${item.stock} ${item.unit}</span></td>
+                    <td><input type="number" id="c_d_${item.rowIndex}" class="form-control text-center fw-bold text-primary" placeholder="นับได้" value="${valCount}" oninput="markChanged(${item.rowIndex}, 'd')"></td>
+                    <td><div class="input-group"><select id="em_d_${item.rowIndex}" class="form-select" onchange="markChanged(${item.rowIndex}, 'd')">${buildMonthDropdown(valExpM)}</select><select id="ey_d_${item.rowIndex}" class="form-select" onchange="markChanged(${item.rowIndex}, 'd')"><option value="">ปี พ.ศ.</option><option value="${valExpY}" selected>${valExpY?("25"+valExpY):""}</option>${yearOptions}</select></div></td>
+                    <td class="text-center"><button class="btn btn-outline-primary btn-sm rounded-circle" title="เพิ่มล็อตที่หมดอายุไม่พร้อมกัน" onclick="addDynamicLot(${item.rowIndex}, 'd')"><i class="fas fa-plus"></i></button></td>
+                </tr>
+                <tbody id="dynamic_d_${item.rowIndex}" style="border:none;"></tbody>`;
+
+                // การ์ด Mobile (เพิ่ม div รับล็อตใหม่)
+                mContainer.innerHTML += `<div class="mobile-card border-start ${color.border} ${isChangedClass}" id="row_m_${item.rowIndex}">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div><div class="fw-bold text-dark">${item.name}</div>${badgeHtml}</div>
+                        <span class="badge bg-light text-secondary border">เดิม: ${item.stock} ${item.unit}</span>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-12"><input type="number" id="c_m_${item.rowIndex}" class="form-control text-center fw-bold text-primary" placeholder="นับจริง (${item.unit})" value="${valCount}" oninput="markChanged(${item.rowIndex}, 'm')"></div>
+                        <div class="col-6"><select id="em_m_${item.rowIndex}" class="form-select" onchange="markChanged(${item.rowIndex}, 'm')">${buildMonthDropdown(valExpM)}</select></div>
+                        <div class="col-6"><select id="ey_m_${item.rowIndex}" class="form-select" onchange="markChanged(${item.rowIndex}, 'm')"><option value="">ปี พ.ศ.</option><option value="${valExpY}" selected>${valExpY?("25"+valExpY):""}</option>${yearOptions}</select></div>
+                    </div>
+                    <div id="dynamic_m_${item.rowIndex}"></div>
+                    <button class="btn btn-outline-primary btn-sm w-100 mt-2 fw-bold" onclick="addDynamicLot(${item.rowIndex}, 'm')"><i class="fas fa-plus-circle"></i> เพิ่มช่องล็อตใหม่</button>
+                </div>`;
             });
+        }
+
+        // ฟังก์ชันใหม่: เพิ่มกล่องกรอกข้อมูล (ไม่ต้องโหลดหน้าใหม่ ไม่เรียก API)
+        function addDynamicLot(rIdx, type) {
+            if(!dynamicLots[rIdx]) dynamicLots[rIdx] = [];
+            const newLotId = dynamicLots[rIdx].length + 1;
+            dynamicLots[rIdx].push(newLotId);
+            
+            const container = document.getElementById(`dynamic_${type}_${rIdx}`);
+            const item = globalData.find(i => i.rowIndex === rIdx);
+            
+            if(type === 'd') { // หน้า PC (แทรกแถว)
+                container.innerHTML += `<tr class="new-lot-row" id="dyn_row_d_${rIdx}_${newLotId}">
+                    <td class="text-end text-muted small px-3">↳ ยอดนับล็อตใหม่ :</td>
+                    <td><span class="badge bg-light text-dark border">แยกวันหมดอายุ</span></td>
+                    <td><input type="number" id="dyn_c_d_${rIdx}_${newLotId}" class="form-control text-center fw-bold text-warning" placeholder="นับได้ (${item.unit})"></td>
+                    <td><div class="input-group"><select id="dyn_em_d_${rIdx}_${newLotId}" class="form-select">${buildMonthDropdown("")}</select><select id="dyn_ey_d_${rIdx}_${newLotId}" class="form-select"><option value="">ปี พ.ศ.</option>${yearOptions}</select></div></td>
+                    <td class="text-center"><button class="btn btn-outline-danger btn-sm rounded-circle" onclick="document.getElementById('dyn_row_d_${rIdx}_${newLotId}').remove()"><i class="fas fa-minus"></i></button></td>
+                </tr>`;
+            } else { // หน้า Mobile (แทรกกล่อง)
+                container.innerHTML += `<div class="p-3 mb-2 rounded border new-lot-row" id="dyn_row_m_${rIdx}_${newLotId}">
+                    <div class="d-flex justify-content-between mb-2"><span class="fw-bold text-warning small">↳ ล็อตใหม่ (แยกหมดอายุ)</span><button class="btn btn-sm text-danger p-0" onclick="document.getElementById('dyn_row_m_${rIdx}_${newLotId}').remove()"><i class="fas fa-times-circle fs-5"></i></button></div>
+                    <div class="row g-2">
+                        <div class="col-12"><input type="number" id="dyn_c_m_${rIdx}_${newLotId}" class="form-control text-center fw-bold text-warning" placeholder="จำนวนนับ (${item.unit})"></div>
+                        <div class="col-6"><select id="dyn_em_m_${rIdx}_${newLotId}" class="form-select">${buildMonthDropdown("")}</select></div>
+                        <div class="col-6"><select id="dyn_ey_m_${rIdx}_${newLotId}" class="form-select"><option value="">พ.ศ.</option>${yearOptions}</select></div>
+                    </div>
+                </div>`;
+            }
         }
 
         function saveAllStock() {
             let updates = [];
+            
+            // วนเก็บค่าตัวหลัก
             globalData.forEach(item => {
-                let c = document.getElementById(`c_d_${item.rowIndex}`) || document.getElementById(`c_m_${item.rowIndex}`);
-                let em = document.getElementById(`em_d_${item.rowIndex}`) || document.getElementById(`em_m_${item.rowIndex}`);
-                let ey = document.getElementById(`ey_d_${item.rowIndex}`) || document.getElementById(`ey_m_${item.rowIndex}`);
+                let rIdx = item.rowIndex;
+                let c = document.getElementById(`c_d_${rIdx}`) || document.getElementById(`c_m_${rIdx}`);
+                let em = document.getElementById(`em_d_${rIdx}`) || document.getElementById(`em_m_${rIdx}`);
+                let ey = document.getElementById(`ey_d_${rIdx}`) || document.getElementById(`ey_m_${rIdx}`);
+                
                 if (c && c.value !== "") {
                     let expStr = (em && ey && em.value && ey.value) ? `${em.value} ${ey.value}` : "";
-                    updates.push({ row: item.rowIndex, name: item.name, unit: item.unit, newCount: c.value, newExp: expStr });
+                    updates.push({ row: rIdx, name: item.name, category: item.category, indication: item.indication, unit: item.unit, newCount: c.value, newExp: expStr, isNewLot: false });
+                }
+
+                // ตรวจสอบว่ามียอดล็อตใหม่ที่กดเพิ่มไว้ไหม
+                if(dynamicLots[rIdx]) {
+                    dynamicLots[rIdx].forEach(lotId => {
+                        let dynC = document.getElementById(`dyn_c_d_${rIdx}_${lotId}`) || document.getElementById(`dyn_c_m_${rIdx}_${lotId}`);
+                        let dynEM = document.getElementById(`dyn_em_d_${rIdx}_${lotId}`) || document.getElementById(`dyn_em_m_${rIdx}_${lotId}`);
+                        let dynEY = document.getElementById(`dyn_ey_d_${rIdx}_${lotId}`) || document.getElementById(`dyn_ey_m_${rIdx}_${lotId}`);
+                        
+                        // ถ้ากรอกกล่องล็อตใหม่และยังไม่ได้ถูกลบทิ้งไป
+                        if (dynC && dynC.value !== "") {
+                            let expStr = (dynEM && dynEY && dynEM.value && dynEY.value) ? `${dynEM.value} ${dynEY.value}` : "";
+                            updates.push({ 
+                                parentRow: rIdx, // อ้างอิงว่าลูกใคร
+                                name: item.name, category: item.category, indication: item.indication, unit: item.unit, 
+                                newCount: dynC.value, newExp: expStr, isNewLot: true // แจ้ง backend ว่านี่คือล็อตใหม่ให้สร้างบรรทัดใหม่
+                            });
+                        }
+                    });
                 }
             });
 
@@ -313,8 +371,8 @@
             fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) }).then(r => r.json()).then((res) => { 
                 if(res.status === 'error') { alert("เกิดข้อผิดพลาด: " + res.message); } 
                 else { 
-                    showToast(currentEditHistRow ? `แก้ไขประวัติและอัปเดตยอดเรียบร้อย!` : `บันทึกการตรวจนับลงประวัติเรียบร้อย!`); 
-                    currentEditHistRow = null; currentEditHistData = null; 
+                    showToast(currentEditHistRow ? `แก้ไขประวัติและอัปเดตยอดเรียบร้อย!` : `บันทึกการตรวจนับและล็อตใหม่เรียบร้อย!`); 
+                    currentEditHistRow = null; currentEditHistData = null; dynamicLots = {};
                     document.getElementById('btnSaveAll').innerHTML = `<i class="fas fa-save me-2"></i> ยืนยันการตรวจนับ`;
                     document.getElementById('filterCheckup').value = "ทั้งหมด";
                     loadData(); 
@@ -323,125 +381,39 @@
             }).catch(e => { alert("Error Server"); btn.innerHTML = `<i class="fas fa-save me-2"></i> ยืนยันการตรวจนับ`; btn.disabled = false; });
         }
 
-        function addLot(rowIndex) {
-            const item = globalData.find(i => i.rowIndex === rowIndex); if(!item) return;
-            if(confirm(`เพิ่มแถวใหม่สำหรับยา "${item.name}" ใช่หรือไม่?`)) {
-                fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: "add_lot", row: item.rowIndex, name: item.name, category: item.category, indication: item.indication, unit: item.unit }) }).then(r => r.json()).then((res) => { showToast('เพิ่มแถวสำเร็จ!'); loadData(); });
-            }
-        }
-
-        // --- 3. หน้า Review ---
-        function renderReview() { 
-            const filter = document.getElementById('filterReview').value;
-            const tBody = document.querySelector('#reviewTable tbody'); tBody.innerHTML = "";
-            const mContainer = document.getElementById('reviewMobile'); mContainer.innerHTML = "";
-            let displayData = filter !== "ทั้งหมด" ? globalData.filter(i => i.category === filter) : globalData;
-            displayData.forEach(item => {
-                const color = catColors[item.category] || { badge: "bg-dark", border: "border-dark" };
-                const badgeHtml = `<span class="badge ${color.badge}">${item.category}</span>`;
-                tBody.innerHTML += `<tr><td class="fw-bold">${item.name}</td><td class="text-center">${badgeHtml}</td><td>${item.indication}</td><td class="text-success fw-bold text-center">${item.stock} ${item.unit}</td><td class="text-center">${item.expText}</td></tr>`;
-                mContainer.innerHTML += `<div class="mobile-card border-start ${color.border}"><div class="d-flex justify-content-between mb-1"><span class="fw-bold">${item.name}</span><span class="text-success fw-bold">${item.stock} ${item.unit}</span></div><div class="d-flex justify-content-between align-items-center mt-2">${badgeHtml}<span class="text-muted small"><i class="far fa-calendar-alt"></i> ${item.expText}</span></div></div>`;
-            });
-        }
-        function exportCSV() {
-            let csv = "\uFEFFรายการยา,หมวดหมู่,ข้อบ่งใช้,ยอดคงเหลือ,หน่วย,วันหมดอายุ\n";
-            let displayData = document.getElementById('filterReview').value !== "ทั้งหมด" ? globalData.filter(i => i.category === document.getElementById('filterReview').value) : globalData;
-            displayData.forEach(item => { csv += `"${item.name}","${item.category}","${item.indication}","${item.stock}","${item.unit}","${item.expText}"\n`; });
-            const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' })); link.download = `รายงานคลังยา.csv`; link.click();
-        }
-
-        // --- 4. หน้า History ---
+        // --- ส่วนที่เหลือ (Home, Review, Manage, History) ทำงานตามปกติ ---
+        function renderHome() { const nList = document.getElementById('nearExpireList'); const eList = document.getElementById('expiredList'); nList.innerHTML = ""; eList.innerHTML = ""; let nC = 0, eC = 0; const now = new Date(); const cY = now.getFullYear() + 543; const cM = now.getMonth() + 1; globalData.forEach(item => { const d = parseExpireDate(String(item.expText)); if(!d) return; const diff = ((d.year - cY) * 12) + (d.month - cM); const html = `<li class="list-group-item d-flex justify-content-between align-items-center"><span class="fw-bold" style="font-size:0.9rem;">${item.name}</span><span class="badge ${diff < 0 ? 'bg-danger' : 'bg-warning text-dark'} rounded-pill">${item.expText}</span></li>`; if(diff < 0) { eList.innerHTML += html; eC++; } else if(diff >= 0 && diff <= 1) { nList.innerHTML += html; nC++; } }); if(!nC) nList.innerHTML = "<li class='list-group-item text-success small'><i class='fas fa-check-circle'></i> ไม่มียาใกล้หมดอายุ</li>"; if(!eC) eList.innerHTML = "<li class='list-group-item text-success small'><i class='fas fa-check-circle'></i> ไม่มียาหมดอายุตกค้าง</li>"; }
+        function renderReview() { const filter = document.getElementById('filterReview').value; const tBody = document.querySelector('#reviewTable tbody'); tBody.innerHTML = ""; const mContainer = document.getElementById('reviewMobile'); mContainer.innerHTML = ""; let displayData = filter !== "ทั้งหมด" ? globalData.filter(i => i.category === filter) : globalData; displayData.forEach(item => { const color = catColors[item.category] || { badge: "bg-dark", border: "border-dark" }; const badgeHtml = `<span class="badge ${color.badge}">${item.category}</span>`; tBody.innerHTML += `<tr><td class="fw-bold">${item.name}</td><td class="text-center">${badgeHtml}</td><td>${item.indication}</td><td class="text-success fw-bold text-center">${item.stock} ${item.unit}</td><td class="text-center">${item.expText}</td></tr>`; mContainer.innerHTML += `<div class="mobile-card border-start ${color.border}"><div class="d-flex justify-content-between mb-1"><span class="fw-bold">${item.name}</span><span class="text-success fw-bold">${item.stock} ${item.unit}</span></div><div class="d-flex justify-content-between align-items-center mt-2">${badgeHtml}<span class="text-muted small"><i class="far fa-calendar-alt"></i> ${item.expText}</span></div></div>`; }); }
+        function exportCSV() { let csv = "\uFEFFรายการยา,หมวดหมู่,ข้อบ่งใช้,ยอดคงเหลือ,หน่วย,วันหมดอายุ\n"; let displayData = document.getElementById('filterReview').value !== "ทั้งหมด" ? globalData.filter(i => i.category === document.getElementById('filterReview').value) : globalData; displayData.forEach(item => { csv += `"${item.name}","${item.category}","${item.indication}","${item.stock}","${item.unit}","${item.expText}"\n`; }); const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' })); link.download = `รายงานคลังยา.csv`; link.click(); }
+        
         function formatGoogleDate(rawStr) { if(String(rawStr).includes('T')) { return new Date(rawStr).toLocaleDateString('th-TH'); } return rawStr; }
         function formatGoogleTime(rawStr) { if(String(rawStr).includes('T')) { return new Date(rawStr).toLocaleTimeString('th-TH'); } return rawStr; }
-
         function renderHistory() {
             const container = document.getElementById('historyContainer'); container.innerHTML = "";
             if(historyData.length === 0) { container.innerHTML = "<div class='col-12 text-center text-muted py-5'>ยังไม่มีประวัติการบันทึก</div>"; return; }
-            
             historyData.forEach(hist => {
-                // แก้ไขการดึงข้อมูลจาก Key ป้องกันปัญหาคอลัมน์สลับ
-                const date = formatGoogleDate(hist["วันที่"] || ""); 
-                const time = formatGoogleTime(hist["เวลา"] || ""); 
-                const user = hist["ผู้บันทึก"] || "ไม่ระบุ";
-                
+                const date = formatGoogleDate(hist["วันที่"] || ""); const time = formatGoogleTime(hist["เวลา"] || ""); const user = hist["ผู้บันทึก"] || "ไม่ระบุ";
                 container.innerHTML += `<div class="col-md-6 col-lg-4 mb-3"><div class="card shadow-sm border-0 h-100" style="border-radius:12px; cursor:pointer;" onclick='viewHistory(${JSON.stringify(hist)})'><div class="card-body"><div class="d-flex justify-content-between mb-2"><span class="badge bg-dark"><i class="fas fa-calendar-day"></i> ${date}</span><span class="badge bg-secondary"><i class="fas fa-clock"></i> ${time}</span></div><h6 class="fw-bold text-primary mt-3"><i class="fas fa-user-edit"></i> ผู้บันทึก: ${user}</h6><div class="text-muted small mt-2 text-primary"><i class="fas fa-hand-pointer"></i> คลิกเพื่อดูรายการ หรือแก้ไข...</div></div></div></div>`;
             });
         }
-        
         function viewHistory(histObj) {
-            const date = formatGoogleDate(histObj["วันที่"] || ""); 
-            const time = formatGoogleTime(histObj["เวลา"] || "");
-            const user = histObj["ผู้บันทึก"] || "ไม่ระบุ"; 
-            const jsonData = histObj["ข้อมูล"] || "[]";
-            
-            let items = []; 
-            try { items = JSON.parse(jsonData); if(!Array.isArray(items)) items = []; } catch(e){ items = []; }
-
+            const date = formatGoogleDate(histObj["วันที่"] || ""); const time = formatGoogleTime(histObj["เวลา"] || ""); const user = histObj["ผู้บันทึก"] || "ไม่ระบุ"; const jsonData = histObj["ข้อมูล"] || "[]";
+            let items = []; try { items = JSON.parse(jsonData); if(!Array.isArray(items)) items = []; } catch(e){ items = []; }
             let html = `<div class="alert alert-secondary mb-3"><b><i class="fas fa-user"></i> ผู้บันทึก:</b> ${user} <br><b><i class="fas fa-calendar"></i> เวลา:</b> ${date} ${time}</div>`;
             html += `<table class="table table-bordered align-middle"><thead class="table-light"><tr><th width="40%">รายการยา</th><th width="30%" class="text-center">ยอดนับ</th><th width="30%" class="text-center">วันหมดอายุ</th></tr></thead><tbody>`;
-            
-            if(items.length === 0) {
-                html += `<tr><td colspan="3" class="text-center text-muted py-4"><i class="fas fa-check-circle text-success fs-4 mb-2"></i><br>ตรวจสอบยอดแล้ว (ไม่มีการเปลี่ยนแปลง)</td></tr>`;
-            } else {
-                items.forEach((i) => { 
-                    html += `<tr><td class="fw-bold">${i.name || "-"} <div class="text-muted small">(${i.unit||""})</div></td><td class="text-center text-success fw-bold">${i.newCount}</td><td class="text-center">${i.newExp || "-"}</td></tr>`; 
-                });
-            }
+            if(items.length === 0) { html += `<tr><td colspan="3" class="text-center text-muted py-4"><i class="fas fa-check-circle text-success fs-4 mb-2"></i><br>ตรวจสอบยอดแล้ว (ไม่มีการเปลี่ยนแปลง)</td></tr>`; } 
+            else { items.forEach((i) => { html += `<tr><td class="fw-bold">${i.name || "-"} <div class="text-muted small">(${i.unit||""})</div></td><td class="text-center text-success fw-bold">${i.newCount}</td><td class="text-center">${i.newExp || "-"}</td></tr>`; }); }
             html += `</tbody></table>`;
             document.getElementById('historyModalBody').innerHTML = html;
-            
-            // ปุ่มลบประวัติ
-            document.getElementById('btnDeleteHistory').onclick = function() {
-                if(confirm(`ต้องการลบประวัติของ ${user} ถาวรหรือไม่?`)) { 
-                    fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: "delete_history", row: histObj.rowIndex }) })
-                    .then(r=>r.json()).then(()=>{ historyModalInstance.hide(); showToast('ลบประวัติสำเร็จ'); loadData(); }); 
-                }
-            };
-
-            // ปุ่มไปแก้ไขที่หน้า Check up (เพิ่มระบบ Timeout แก้บั๊กหน้าค้าง)
-            document.getElementById('btnGoCheckup').onclick = function() {
-                historyModalInstance.hide();
-                
-                setTimeout(() => {
-                    currentEditHistRow = histObj.rowIndex; 
-                    currentEditHistData = items; 
-                    
-                    document.getElementById('filterCheckup').value = "ทั้งหมด"; 
-                    renderCheckup(); 
-                    switchTab('checkup'); 
-                    
-                    document.getElementById('btnSaveAll').innerHTML = `<i class="fas fa-save me-2"></i> บันทึกการแก้ไขประวัติ`;
-                    showToast("โหลดข้อมูลที่เคยนับไว้ลงในฟอร์มแล้ว", "info");
-                }, 300); // รอให้ Modal เฟดปิดจนสนิทก่อนเปลี่ยนหน้า
-            };
-
+            document.getElementById('btnDeleteHistory').onclick = function() { if(confirm(`ต้องการลบประวัติของ ${user} ถาวรหรือไม่?`)) { fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: "delete_history", row: histObj.rowIndex }) }).then(r=>r.json()).then(()=>{ historyModalInstance.hide(); showToast('ลบประวัติสำเร็จ'); loadData(); }); } };
+            document.getElementById('btnGoCheckup').onclick = function() { historyModalInstance.hide(); setTimeout(() => { currentEditHistRow = histObj.rowIndex; currentEditHistData = items; document.getElementById('filterCheckup').value = "ทั้งหมด"; renderCheckup(); switchTab('checkup'); document.getElementById('btnSaveAll').innerHTML = `<i class="fas fa-save me-2"></i> บันทึกการแก้ไขประวัติ`; showToast("โหลดข้อมูลที่เคยนับไว้ลงในฟอร์มแล้ว", "info"); }, 300); };
             historyModalInstance.show();
         }
 
-        // --- 5. หน้า Manage ---
-        function renderManage() {
-            const tBody = document.querySelector('#manageTable tbody'); tBody.innerHTML = "";
-            const mContainer = document.getElementById('manageMobile'); mContainer.innerHTML = "";
-            globalData.forEach(item => {
-                const color = catColors[item.category] || { badge: "bg-dark", border: "border-dark" };
-                tBody.innerHTML += `<tr><td class="fw-bold">${item.name}</td><td><span class="badge ${color.badge}">${item.category}</span></td><td>${item.unit}</td><td class="text-center"><button class="btn btn-sm btn-outline-primary" onclick='openModal("edit", ${JSON.stringify(item)})'>แก้ไข</button> <button class="btn btn-sm btn-outline-danger" onclick="deleteItem(${item.rowIndex}, '${item.name}')">ลบ</button></td></tr>`;
-                mContainer.innerHTML += `<div class="mobile-card border-start ${color.border}"><div class="fw-bold mb-1">${item.name}</div><div class="text-muted small mb-2"><span class="badge ${color.badge} me-1">${item.category}</span> | ${item.unit}</div><div class="row g-2"><div class="col-6"><button class="btn btn-outline-primary btn-sm w-100" onclick='openModal("edit", ${JSON.stringify(item)})'>แก้ไข</button></div><div class="col-6"><button class="btn btn-outline-danger btn-sm w-100" onclick="deleteItem(${item.rowIndex}, '${item.name}')">ลบ</button></div></div></div>`;
-            });
-        }
-        function openModal(act, data=null) {
-            document.getElementById('formAction').value = act;
-            if(act === 'add') { document.getElementById('modalTitle').innerText = "เพิ่มยาใหม่"; ['formRowIndex','formName','formIndication','formUnit'].forEach(id => document.getElementById(id).value = ""); } 
-            else { document.getElementById('modalTitle').innerText = "แก้ไขข้อมูลยา"; document.getElementById('formRowIndex').value = data.rowIndex; document.getElementById('formName').value = data.name; document.getElementById('formCategory').value = data.category; document.getElementById('formIndication').value = data.indication; document.getElementById('formUnit').value = data.unit; }
-            modalInstance.show();
-        }
-        function submitItemData() {
-            const payload = { action: document.getElementById('formAction').value, row: document.getElementById('formRowIndex').value, name: document.getElementById('formName').value, category: document.getElementById('formCategory').value, indication: document.getElementById('formIndication').value, unit: document.getElementById('formUnit').value };
-            if(!payload.name) { showToast('กรุณากรอกชื่อยา', 'danger'); return; }
-            fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) }).then(r => r.json()).then(() => { modalInstance.hide(); showToast('บันทึกฐานข้อมูลสำเร็จ!'); loadData(); });
-        }
-        function deleteItem(rIdx, name) {
-            if(confirm(`ยืนยันการลบ ${name}?`)) { fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: "delete", row: rIdx }) }).then(r => r.json()).then(() => { showToast('ลบรายการออกจากฐานข้อมูลสำเร็จ'); loadData(); }); }
-        }
+        function renderManage() { const tBody = document.querySelector('#manageTable tbody'); tBody.innerHTML = ""; const mContainer = document.getElementById('manageMobile'); mContainer.innerHTML = ""; globalData.forEach(item => { const color = catColors[item.category] || { badge: "bg-dark", border: "border-dark" }; tBody.innerHTML += `<tr><td class="fw-bold">${item.name}</td><td><span class="badge ${color.badge}">${item.category}</span></td><td>${item.unit}</td><td class="text-center"><button class="btn btn-sm btn-outline-primary" onclick='openModal("edit", ${JSON.stringify(item)})'>แก้ไข</button> <button class="btn btn-sm btn-outline-danger" onclick="deleteItem(${item.rowIndex}, '${item.name}')">ลบ</button></td></tr>`; mContainer.innerHTML += `<div class="mobile-card border-start ${color.border}"><div class="fw-bold mb-1">${item.name}</div><div class="text-muted small mb-2"><span class="badge ${color.badge} me-1">${item.category}</span> | ${item.unit}</div><div class="row g-2"><div class="col-6"><button class="btn btn-outline-primary btn-sm w-100" onclick='openModal("edit", ${JSON.stringify(item)})'>แก้ไข</button></div><div class="col-6"><button class="btn btn-outline-danger btn-sm w-100" onclick="deleteItem(${item.rowIndex}, '${item.name}')">ลบ</button></div></div></div>`; }); }
+        function openModal(act, data=null) { document.getElementById('formAction').value = act; if(act === 'add') { document.getElementById('modalTitle').innerText = "เพิ่มยาใหม่"; ['formRowIndex','formName','formIndication','formUnit'].forEach(id => document.getElementById(id).value = ""); } else { document.getElementById('modalTitle').innerText = "แก้ไขข้อมูลยา"; document.getElementById('formRowIndex').value = data.rowIndex; document.getElementById('formName').value = data.name; document.getElementById('formCategory').value = data.category; document.getElementById('formIndication').value = data.indication; document.getElementById('formUnit').value = data.unit; } modalInstance.show(); }
+        function submitItemData() { const payload = { action: document.getElementById('formAction').value, row: document.getElementById('formRowIndex').value, name: document.getElementById('formName').value, category: document.getElementById('formCategory').value, indication: document.getElementById('formIndication').value, unit: document.getElementById('formUnit').value }; if(!payload.name) { showToast('กรุณากรอกชื่อยา', 'danger'); return; } fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) }).then(r => r.json()).then(() => { modalInstance.hide(); showToast('บันทึกฐานข้อมูลสำเร็จ!'); loadData(); }); }
+        function deleteItem(rIdx, name) { if(confirm(`ยืนยันการลบ ${name}?`)) { fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: "delete", row: rIdx }) }).then(r => r.json()).then(() => { showToast('ลบรายการออกจากฐานข้อมูลสำเร็จ'); loadData(); }); } }
     </script>
 </body>
 </html>
