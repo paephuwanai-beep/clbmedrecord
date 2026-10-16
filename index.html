@@ -51,7 +51,7 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item"><a class="nav-link active" href="#" onclick="switchTab('home')">HOME</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#" onclick="switchTab('checkup')">Check up</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#" onclick="switchTab('checkup', true)">Check up</a></li>
                     <li class="nav-item"><a class="nav-link" href="#" onclick="switchTab('review')">Review</a></li>
                     <li class="nav-item"><a class="nav-link" href="#" onclick="switchTab('history')">ประวัติ</a></li>
                     <li class="nav-item"><a class="nav-link text-warning" href="#" onclick="switchTab('manage')"><i class="fas fa-cog"></i> ฐานข้อมูล</a></li>
@@ -122,7 +122,7 @@
     <!-- Bottom Nav (Mobile) -->
     <div class="bottom-nav no-print">
         <a href="#" class="nav-item active" onclick="switchTab('home')" data-tab="home"><i class="fas fa-home"></i><span class="d-none d-sm-block">Home</span></a>
-        <a href="#" class="nav-item" onclick="switchTab('checkup')" data-tab="checkup"><i class="fas fa-clipboard-check"></i><span class="d-none d-sm-block">Check up</span></a>
+        <a href="#" class="nav-item" onclick="switchTab('checkup', true)" data-tab="checkup"><i class="fas fa-clipboard-check"></i><span class="d-none d-sm-block">Check up</span></a>
         <a href="#" class="nav-item" onclick="switchTab('review')" data-tab="review"><i class="fas fa-list-ul"></i><span class="d-none d-sm-block">Review</span></a>
         <a href="#" class="nav-item" onclick="switchTab('history')" data-tab="history"><i class="fas fa-history"></i><span class="d-none d-sm-block">History</span></a>
         <a href="#" class="nav-item" onclick="switchTab('manage')" data-tab="manage"><i class="fas fa-cog"></i><span class="d-none d-sm-block">Manage</span></a>
@@ -148,8 +148,8 @@
         <div class="modal-footer border-0 justify-content-between bg-light">
             <button class="btn btn-outline-danger" id="btnDeleteHistory"><i class="fas fa-trash"></i> ลบประวัตินี้</button>
             <div>
-                <button class="btn btn-secondary me-2" data-bs-dismiss="modal">ปิดหน้าต่าง</button>
-                <button class="btn btn-primary fw-bold px-4" onclick="goToCheckup()"><i class="fas fa-edit"></i> ไปแก้ไขที่หน้า Check up</button>
+                <button class="btn btn-secondary me-2" data-bs-dismiss="modal">ปิด</button>
+                <button class="btn btn-primary fw-bold px-4" id="btnGoCheckup"><i class="fas fa-edit"></i> ไปแก้ไขที่หน้า Check up</button>
             </div>
         </div>
     </div></div></div>
@@ -165,6 +165,9 @@
         const API_URL = 'https://script.google.com/macros/s/AKfycbw5co5zVTl7YHbFjmYWh8_hhXWSJThze_Z2bXZkMRpg3NGwCW7Q1XSjONWnHvVuDE9I4g/exec'; 
 
         let globalData = [], historyData = [];
+        let currentEditHistRow = null; 
+        let currentEditHistData = null;
+
         let modalInstance, historyModalInstance, toastInstance;
 
         const catOrder = { "ยาเม็ด": 1, "ยาน้ำ": 2, "ยาฉีด": 3, "ยาใช้ภายนอก": 4, "สารน้ำและเวชภัณฑ์อื่นๆ": 5, "พัสดุการแพทย์": 6 };
@@ -186,22 +189,32 @@
             document.getElementById('toastMessage').innerText = msg; toastInstance.show();
         }
 
-        function switchTab(tabId) {
+        function switchTab(tabId, isManual = false) {
             document.querySelectorAll('.page-section, .desktop-nav .nav-link, .bottom-nav .nav-item').forEach(el => el.classList.remove('active'));
             document.getElementById(tabId).classList.add('active');
-            let pN = document.querySelector(`.desktop-nav .nav-link[onclick="switchTab('${tabId}')"]`); if(pN) pN.classList.add('active');
-            let mN = document.querySelector(`.bottom-nav .nav-item[data-tab="${tabId}"]`); if(mN) mN.classList.add('active');
+            let pN = document.querySelector(`.desktop-nav .nav-link[onclick="switchTab('${tabId}', true)"]`) || document.querySelector(`.desktop-nav .nav-link[onclick="switchTab('${tabId}')"]`); 
+            if(pN) pN.classList.add('active');
+            let mN = document.querySelector(`.bottom-nav .nav-item[data-tab="${tabId}"]`); 
+            if(mN) mN.classList.add('active');
             window.scrollTo(0, 0);
+
+            // ถ้าจงใจกดปุ่มมาหน้า Checkup เอง (ไม่ได้มาจากประวัติ) และมีประวัติค้างอยู่ ให้รีเซ็ตค่า
+            if(tabId === 'checkup' && isManual && currentEditHistRow) {
+                if(confirm("คุณกำลังแก้ไขประวัติค้างไว้ ต้องการล้างค่าเพื่อเริ่มนับใหม่ใช่หรือไม่?")) {
+                    currentEditHistRow = null;
+                    currentEditHistData = null;
+                    document.getElementById('btnSaveAll').innerHTML = `<i class="fas fa-save me-2"></i> ยืนยันการตรวจนับ`;
+                    document.getElementById('filterCheckup').value = "ทั้งหมด";
+                    renderCheckup();
+                } else {
+                    // ปล่อยค่าไว้เหมือนเดิม
+                }
+            }
         }
 
         function loadData() {
-            if(API_URL === 'YOUR_WEB_APP_URL_HERE') {
-                alert('กรุณาใส่ URL ของ Apps Script ในโค้ดบรรทัด 264 ด้วยครับ'); return;
-            }
+            if(API_URL === 'YOUR_WEB_APP_URL_HERE') { return; }
             fetch(API_URL).then(res => res.json()).then(data => {
-                if(data.status === 'error') {
-                    alert("Error จากฐานข้อมูล: " + data.message); return;
-                }
                 globalData = (data.stock || []).map((row, index) => ({
                     rowIndex: index + 2, name: Object.values(row)[1] || "-", category: Object.values(row)[2] || "-",
                     indication: Object.values(row)[3] || "-", stock: Object.values(row)[7] || "0", expText: Object.values(row)[8] || "-", unit: Object.values(row)[12] || "-"
@@ -211,13 +224,27 @@
                 historyData = (data.history || []).reverse(); 
                 
                 renderHome(); renderCheckup(); renderReview(); renderManage(); renderHistory();
-            }).catch(err => {
-                console.error(err);
-                alert("ดึงข้อมูลไม่สำเร็จ! โปรดตรวจสอบว่าได้ตั้งค่า Apps Script เป็น 'ทุกคน (Anyone)' และเป็น New Version หรือไม่");
-            });
+            }).catch(err => console.log(err));
         }
 
-        function markChanged(rIdx, type) { const el = document.getElementById(`row_${type}_${rIdx}`); if(el) el.classList.add('row-changed'); }
+        function markChanged(rIdx, type) { 
+            const el = document.getElementById(`row_${type}_${rIdx}`); 
+            if(el) el.classList.add('row-changed'); 
+            
+            // แบ็คอัพค่าไว้เผื่อมีการเปลี่ยน Filter ไปมา ค่าที่พิมพ์จะได้ไม่หาย
+            if(currentEditHistData) {
+                let c = document.getElementById(`c_${type}_${rIdx}`).value;
+                let em = document.getElementById(`em_${type}_${rIdx}`).value;
+                let ey = document.getElementById(`ey_${type}_${rIdx}`).value;
+                let existing = currentEditHistData.find(i => i.row === rIdx);
+                if(existing) {
+                    existing.newCount = c; existing.newExp = `${em} ${ey}`.trim();
+                } else {
+                    currentEditHistData.push({ row: rIdx, newCount: c, newExp: `${em} ${ey}`.trim() });
+                }
+            }
+        }
+
         function extractExp(expText) { let m = "", y = ""; if(expText && expText !== "-") { let parts = expText.split(" "); if(parts.length >= 2) { m = parts[0]; y = parts[parts.length-1]; } else { m = expText; } } return {m, y}; }
         function buildMonthDropdown(selectedM) { let html = `<option value="">เดือน</option>`; months.forEach(mo => html += `<option value="${mo}" ${selectedM===mo ? 'selected':''}>${mo}</option>`); return html; }
 
@@ -249,15 +276,35 @@
             const mContainer = document.getElementById('checkupMobile'); mContainer.innerHTML = "";
             let displayData = filter !== "ทั้งหมด" ? globalData.filter(i => i.category === filter) : globalData;
 
+            // จัดการข้อมูลที่เคยนับไว้ในอดีต (ให้แสดงคืนค่าเดิมเวลาแก้ไขประวัติ)
+            let editMap = {};
+            if (currentEditHistRow && currentEditHistData) {
+                currentEditHistData.forEach(i => { editMap[i.row] = i; });
+            }
+
             displayData.forEach(item => {
                 const color = catColors[item.category] || { badge: "bg-dark", border: "border-dark" };
                 const badgeHtml = `<span class="badge ${color.badge} mt-1">${item.category}</span>`;
-                const ex = extractExp(item.expText);
                 
-                tBody.innerHTML += `<tr id="row_d_${item.rowIndex}"><td><div class="fw-bold">${item.name}</div>${badgeHtml}</td><td><span class="badge bg-secondary">${item.stock} ${item.unit}</span></td><td><input type="number" id="c_d_${item.rowIndex}" class="form-control text-center fw-bold text-primary" placeholder="นับได้" oninput="markChanged(${item.rowIndex}, 'd')"></td><td><div class="input-group"><select id="em_d_${item.rowIndex}" class="form-select" onchange="markChanged(${item.rowIndex}, 'd')">${buildMonthDropdown(ex.m)}</select><select id="ey_d_${item.rowIndex}" class="form-select" onchange="markChanged(${item.rowIndex}, 'd')"><option value="">ปี พ.ศ.</option><option value="${ex.y}" selected>${ex.y?("25"+ex.y):""}</option>${yearOptions}</select></div></td><td class="text-center"><button class="btn btn-outline-primary btn-sm rounded-circle" title="เพิ่มล็อต" onclick="addLot(${item.rowIndex})"><i class="fas fa-plus"></i></button></td></tr>`;
-                mContainer.innerHTML += `<div class="mobile-card border-start ${color.border}" id="row_m_${item.rowIndex}"><div class="d-flex justify-content-between align-items-start mb-2"><div><div class="fw-bold text-dark">${item.name}</div>${badgeHtml}</div><span class="badge bg-light text-secondary border">เดิม: ${item.stock} ${item.unit}</span></div><div class="row g-2 mb-2"><div class="col-12"><input type="number" id="c_m_${item.rowIndex}" class="form-control text-center fw-bold text-primary" placeholder="นับจริง (${item.unit})" oninput="markChanged(${item.rowIndex}, 'm')"></div><div class="col-6"><select id="em_m_${item.rowIndex}" class="form-select" onchange="markChanged(${item.rowIndex}, 'm')">${buildMonthDropdown(ex.m)}</select></div><div class="col-6"><select id="ey_m_${item.rowIndex}" class="form-select" onchange="markChanged(${item.rowIndex}, 'm')"><option value="">ปี พ.ศ.</option><option value="${ex.y}" selected>${ex.y?("25"+ex.y):""}</option>${yearOptions}</select></div></div><button class="btn btn-outline-primary btn-sm w-100 mt-2 fw-bold" onclick="addLot(${item.rowIndex})"><i class="fas fa-plus-circle"></i> เพิ่มแถวล็อตใหม่</button></div>`;
+                let valCount = "", valExpM = "", valExpY = "", isChangedClass = "";
+
+                // ถ้าแถวนี้มีข้อมูลประวัติที่กำลังแก้ไข ให้ยัดค่ากลับคืน
+                if (editMap[item.rowIndex]) {
+                    valCount = editMap[item.rowIndex].newCount;
+                    let ex = extractExp(editMap[item.rowIndex].newExp);
+                    valExpM = ex.m; valExpY = ex.y;
+                    isChangedClass = "row-changed"; // ไฮไลท์สีฟ้า
+                } else {
+                    let ex = extractExp(item.expText);
+                    valExpM = ex.m; valExpY = ex.y;
+                }
+                
+                tBody.innerHTML += `<tr id="row_d_${item.rowIndex}" class="${isChangedClass}"><td><div class="fw-bold">${item.name}</div>${badgeHtml}</td><td><span class="badge bg-secondary">${item.stock} ${item.unit}</span></td><td><input type="number" id="c_d_${item.rowIndex}" class="form-control text-center fw-bold text-primary" placeholder="นับได้" value="${valCount}" oninput="markChanged(${item.rowIndex}, 'd')"></td><td><div class="input-group"><select id="em_d_${item.rowIndex}" class="form-select" onchange="markChanged(${item.rowIndex}, 'd')">${buildMonthDropdown(valExpM)}</select><select id="ey_d_${item.rowIndex}" class="form-select" onchange="markChanged(${item.rowIndex}, 'd')"><option value="">ปี พ.ศ.</option><option value="${valExpY}" selected>${valExpY?("25"+valExpY):""}</option>${yearOptions}</select></div></td><td class="text-center"><button class="btn btn-outline-primary btn-sm rounded-circle" title="เพิ่มล็อต" onclick="addLot(${item.rowIndex})"><i class="fas fa-plus"></i></button></td></tr>`;
+
+                mContainer.innerHTML += `<div class="mobile-card border-start ${color.border} ${isChangedClass}" id="row_m_${item.rowIndex}"><div class="d-flex justify-content-between align-items-start mb-2"><div><div class="fw-bold text-dark">${item.name}</div>${badgeHtml}</div><span class="badge bg-light text-secondary border">เดิม: ${item.stock} ${item.unit}</span></div><div class="row g-2 mb-2"><div class="col-12"><input type="number" id="c_m_${item.rowIndex}" class="form-control text-center fw-bold text-primary" placeholder="นับจริง (${item.unit})" value="${valCount}" oninput="markChanged(${item.rowIndex}, 'm')"></div><div class="col-6"><select id="em_m_${item.rowIndex}" class="form-select" onchange="markChanged(${item.rowIndex}, 'm')">${buildMonthDropdown(valExpM)}</select></div><div class="col-6"><select id="ey_m_${item.rowIndex}" class="form-select" onchange="markChanged(${item.rowIndex}, 'm')"><option value="">ปี พ.ศ.</option><option value="${valExpY}" selected>${valExpY?("25"+valExpY):""}</option>${yearOptions}</select></div></div><button class="btn btn-outline-primary btn-sm w-100 mt-2 fw-bold" onclick="addLot(${item.rowIndex})"><i class="fas fa-plus-circle"></i> เพิ่มแถวล็อตใหม่</button></div>`;
             });
         }
+
         function saveAllStock() {
             let updates = [];
             globalData.forEach(item => {
@@ -270,15 +317,34 @@
                 }
             });
 
-            let user = prompt("กรุณากรอกชื่อ/รหัส ผู้บันทึกการตรวจนับ (หรือกดยกเลิก):");
-            if(user === null) return;
-            if(user.trim() === "") user = "ไม่ระบุชื่อ";
+            let payload = { updates: updates };
+
+            // กรณีบันทึกทับประวัติเดิม
+            if (currentEditHistRow) {
+                payload.action = "edit_history";
+                payload.row = currentEditHistRow;
+            } 
+            // กรณีบันทึกรอบใหม่ปกติ
+            else {
+                let user = prompt("กรุณากรอกชื่อ/รหัส ผู้บันทึกการตรวจนับ (หรือกดยกเลิก):");
+                if(user === null) return;
+                if(user.trim() === "") user = "ไม่ระบุชื่อ";
+                payload.action = "update_stock_batch";
+                payload.user = user;
+            }
             
             const btn = document.getElementById('btnSaveAll'); btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> กำลังบันทึก...`; btn.disabled = true;
 
-            fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: "update_stock_batch", updates: updates, user: user }) }).then(r => r.json()).then((res) => { 
-                if(res.status === 'error') { alert("เกิดข้อผิดพลาด: " + res.message); } else { showToast(`บันทึกการตรวจนับลงประวัติเรียบร้อย!`); loadData(); }
-                btn.innerHTML = `<i class="fas fa-save me-2"></i> ยืนยันการตรวจนับ`; btn.disabled = false;
+            fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) }).then(r => r.json()).then((res) => { 
+                if(res.status === 'error') { alert("เกิดข้อผิดพลาด: " + res.message); } 
+                else { 
+                    showToast(currentEditHistRow ? `แก้ไขประวัติและอัปเดตยอดเรียบร้อย!` : `บันทึกการตรวจนับลงประวัติเรียบร้อย!`); 
+                    currentEditHistRow = null; currentEditHistData = null; // คืนค่าตัวแปร
+                    document.getElementById('btnSaveAll').innerHTML = `<i class="fas fa-save me-2"></i> ยืนยันการตรวจนับ`;
+                    document.getElementById('filterCheckup').value = "ทั้งหมด";
+                    loadData(); 
+                }
+                btn.disabled = false;
             }).catch(e => { alert("Error Server"); btn.innerHTML = `<i class="fas fa-save me-2"></i> ยืนยันการตรวจนับ`; btn.disabled = false; });
         }
         function addLot(rowIndex) {
@@ -308,60 +374,52 @@
             const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' })); link.download = `รายงานคลังยา.csv`; link.click();
         }
 
-        // --- 4. หน้า History (ประวัติ) ---
-        function formatGoogleDate(rawStr) {
-            if(String(rawStr).includes('T')) { return new Date(rawStr).toLocaleDateString('th-TH'); }
-            return rawStr;
-        }
-        function formatGoogleTime(rawStr) {
-            if(String(rawStr).includes('T')) { return new Date(rawStr).toLocaleTimeString('th-TH'); }
-            return rawStr;
-        }
+        // --- 4. หน้า History ---
+        function formatGoogleDate(rawStr) { if(String(rawStr).includes('T')) { return new Date(rawStr).toLocaleDateString('th-TH'); } return rawStr; }
+        function formatGoogleTime(rawStr) { if(String(rawStr).includes('T')) { return new Date(rawStr).toLocaleTimeString('th-TH'); } return rawStr; }
 
         function renderHistory() {
             const container = document.getElementById('historyContainer'); container.innerHTML = "";
             if(historyData.length === 0) { container.innerHTML = "<div class='col-12 text-center text-muted py-5'>ยังไม่มีประวัติการบันทึก</div>"; return; }
             
             historyData.forEach(hist => {
-                const date = formatGoogleDate(Object.values(hist)[0]); 
-                const time = formatGoogleTime(Object.values(hist)[1]); 
-                const user = Object.values(hist)[2];
-                container.innerHTML += `<div class="col-md-6 col-lg-4 mb-3"><div class="card shadow-sm border-0 h-100" style="border-radius:12px; cursor:pointer;" onclick='viewHistory(${JSON.stringify(hist)})'><div class="card-body"><div class="d-flex justify-content-between mb-2"><span class="badge bg-dark"><i class="fas fa-calendar-day"></i> ${date}</span><span class="badge bg-secondary"><i class="fas fa-clock"></i> ${time}</span></div><h6 class="fw-bold text-primary mt-3"><i class="fas fa-user-edit"></i> ผู้บันทึก: ${user}</h6><div class="text-muted small mt-2 text-primary"><i class="fas fa-hand-pointer"></i> คลิกเพื่อดูรายการ...</div></div></div></div>`;
+                const date = formatGoogleDate(Object.values(hist)[0]); const time = formatGoogleTime(Object.values(hist)[1]); const user = Object.values(hist)[2];
+                container.innerHTML += `<div class="col-md-6 col-lg-4 mb-3"><div class="card shadow-sm border-0 h-100" style="border-radius:12px; cursor:pointer;" onclick='viewHistory(${JSON.stringify(hist)})'><div class="card-body"><div class="d-flex justify-content-between mb-2"><span class="badge bg-dark"><i class="fas fa-calendar-day"></i> ${date}</span><span class="badge bg-secondary"><i class="fas fa-clock"></i> ${time}</span></div><h6 class="fw-bold text-primary mt-3"><i class="fas fa-user-edit"></i> ผู้บันทึก: ${user}</h6><div class="text-muted small mt-2 text-primary"><i class="fas fa-hand-pointer"></i> คลิกเพื่อดูรายการ หรือแก้ไข...</div></div></div></div>`;
             });
         }
         
         function viewHistory(histObj) {
-            const date = formatGoogleDate(Object.values(histObj)[0]); 
-            const time = formatGoogleTime(Object.values(histObj)[1]);
+            const date = formatGoogleDate(Object.values(histObj)[0]); const time = formatGoogleTime(Object.values(histObj)[1]);
             const user = Object.values(histObj)[2]; const jsonData = Object.values(histObj)[3];
             let items = []; try { items = JSON.parse(jsonData); } catch(e){}
 
             let html = `<div class="alert alert-secondary mb-3"><b><i class="fas fa-user"></i> ผู้บันทึก:</b> ${user} <br><b><i class="fas fa-calendar"></i> เวลา:</b> ${date} ${time}</div>`;
             html += `<table class="table table-bordered align-middle"><thead class="table-light"><tr><th width="40%">รายการยา</th><th width="30%" class="text-center">ยอดนับ</th><th width="30%" class="text-center">วันหมดอายุ</th></tr></thead><tbody>`;
-            
-            if(items.length === 0) {
-                html += `<tr><td colspan="3" class="text-center text-muted py-4"><i class="fas fa-check-circle text-success fs-4 mb-2"></i><br>ตรวจสอบยอดแล้ว (ไม่มีการเปลี่ยนแปลง)</td></tr>`;
-            } else {
-                items.forEach((i, idx) => { 
-                    html += `<tr><td class="fw-bold">${i.name || "-"} <div class="text-muted small">(${i.unit||""})</div></td><td class="text-center text-success fw-bold">${i.newCount}</td><td class="text-center">${i.newExp || "-"}</td></tr>`; 
-                });
-            }
+            if(items.length === 0) { html += `<tr><td colspan="3" class="text-center text-muted py-4"><i class="fas fa-check-circle text-success fs-4 mb-2"></i><br>ตรวจสอบยอดแล้ว (ไม่มีการเปลี่ยนแปลง)</td></tr>`; } 
+            else { items.forEach((i, idx) => { html += `<tr><td class="fw-bold">${i.name || "-"} <div class="text-muted small">(${i.unit||""})</div></td><td class="text-center text-success fw-bold">${i.newCount}</td><td class="text-center">${i.newExp || "-"}</td></tr>`; }); }
             html += `</tbody></table>`;
             document.getElementById('historyModalBody').innerHTML = html;
             
             document.getElementById('btnDeleteHistory').onclick = function() {
                 if(confirm(`ต้องการลบประวัติของ ${user} ถาวรหรือไม่?`)) { fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: "delete_history", row: histObj.rowIndex }) }).then(r=>r.json()).then(()=>{ historyModalInstance.hide(); showToast('ลบประวัติสำเร็จ'); loadData(); }); }
             };
+
+            // กดปุ่มเพื่อให้วิ่งไปหน้า Check up พร้อมดึงข้อมูลประวัติ
+            document.getElementById('btnGoCheckup').onclick = function() {
+                historyModalInstance.hide();
+                currentEditHistRow = histObj.rowIndex; // บันทึกว่ากำลังแก้แถวไหน
+                currentEditHistData = items; // ดึงข้อมูลตัวเลขที่นับใส่ตัวแปร
+                
+                document.getElementById('filterCheckup').value = "ทั้งหมด"; // ล้างฟิลเตอร์ก่อน
+                renderCheckup(); // สั่งให้สร้างตารางใหม่ (ซึ่งจะเอา currentEditHistData ไปยัดให้เองอัตโนมัติ)
+                switchTab('checkup'); // เด้งไปหน้า Check up
+                
+                document.getElementById('btnSaveAll').innerHTML = `<i class="fas fa-save me-2"></i> บันทึกการแก้ไขประวัติ`;
+                showToast("โหลดข้อมูลประวัติลงในฟอร์มแล้ว", "info");
+            };
             historyModalInstance.show();
         }
 
-        // เมื่อกดปุ่ม 'ไปแก้ไขที่หน้า Check up' ใน Modal
-        function goToCheckup() {
-            historyModalInstance.hide();
-            switchTab('checkup');
-        }
-
-        // --- 5. หน้า Manage ---
         function renderManage() {
             const tBody = document.querySelector('#manageTable tbody'); tBody.innerHTML = "";
             const mContainer = document.getElementById('manageMobile'); mContainer.innerHTML = "";
