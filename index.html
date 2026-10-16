@@ -31,7 +31,6 @@
                 padding: 10px 0; padding-bottom: env(safe-area-inset-bottom, 10px);
                 z-index: 1050; border-radius: 20px 20px 0 0;
             }
-            /* ลดขนาดฟอนต์เมนูล่างให้พอดี 5 เมนู */
             .bottom-nav .nav-item { text-align: center; color: #94a3b8; text-decoration: none; font-size: 0.7rem; flex: 1; }
             .bottom-nav .nav-item i { font-size: 1.3rem; display: block; margin-bottom: 2px; }
             .bottom-nav .nav-item.active { color: #198754; font-weight: bold; }
@@ -97,7 +96,7 @@
             </div>
             <div id="checkupMobile" class="d-block d-md-none"></div>
             <div class="text-end mt-3 no-print pb-5">
-                <button class="btn btn-success btn-lg px-4 fab-save w-100 w-md-auto" onclick="saveAllStock()" id="btnSaveAll"><i class="fas fa-save me-2"></i> บันทึกข้อมูลที่นับ</button>
+                <button class="btn btn-success btn-lg px-4 fab-save w-100 w-md-auto" onclick="saveAllStock()" id="btnSaveAll"><i class="fas fa-save me-2"></i> บันทึกข้อมูลการตรวจนับ</button>
             </div>
         </div>
 
@@ -185,7 +184,7 @@
         // ==========================================
         // 🛑 นำ URL ของ Apps Script มาวางตรงนี้
         // ==========================================
-        const API_URL = 'https://script.google.com/macros/s/AKfycbxnI88-1aBMIhfmj0td915RZvgei4KQoxhsGCzXVlPnK8UXClEw65dGv-UaVVrPGLi_0g/exec'; 
+        const API_URL = 'https://script.google.com/macros/s/AKfycbwb4Uye3U-u1OmqhEJAs2m_ACktXbyR8CufFkG1T38Kb1kESODV4pkYCDEHc2T8-Dt0qw/exec'; 
 
         let globalData = [];
         let historyData = [];
@@ -236,7 +235,7 @@
                     if(cA !== cB) return cA - cB; return a.name.localeCompare(b.name, 'th');
                 });
                 
-                historyData = (data.history || []).reverse(); // เรียงจากล่าสุดไปเก่าสุด
+                historyData = (data.history || []).reverse(); 
                 
                 renderHome(); renderCheckup(); renderReview(); renderManage(); renderHistory();
             }).catch(err => console.log(err));
@@ -304,8 +303,7 @@
                 }
             });
 
-            if (updates.length === 0) { showToast("กรุณากรอกยอดนับอย่างน้อย 1 รายการ", "danger"); return; }
-            
+            // เอาเงื่อนไขที่บังคับกรอกออกแล้ว!
             let user = prompt("กรุณากรอกชื่อ/รหัส ผู้บันทึกการตรวจนับ:");
             if(user === null) return;
             if(user.trim() === "") user = "ไม่ระบุชื่อ";
@@ -315,8 +313,8 @@
 
             fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: "update_stock_batch", updates: updates, user: user }) })
                 .then(r => r.json()).then(() => { 
-                    showToast(`บันทึกสต๊อกและประวัติเรียบร้อยแล้ว!`); loadData(); 
-                    btn.innerHTML = `<i class="fas fa-save me-2"></i> บันทึกข้อมูลที่นับ`; btn.disabled = false;
+                    showToast(`บันทึกการตรวจนับลงประวัติเรียบร้อย!`); loadData(); 
+                    btn.innerHTML = `<i class="fas fa-save me-2"></i> บันทึกข้อมูลการตรวจนับ`; btn.disabled = false;
                 });
         }
 
@@ -327,7 +325,7 @@
             }
         }
 
-        function renderReview() { /* เหมือนเดิม โค้ดย่อเพื่อความกระชับ */
+        function renderReview() { 
             const filter = document.getElementById('filterReview').value;
             const tBody = document.querySelector('#reviewTable tbody'); tBody.innerHTML = "";
             const mContainer = document.getElementById('reviewMobile'); mContainer.innerHTML = "";
@@ -340,7 +338,6 @@
             });
         }
 
-        // --- ส่วนประวัติ (HISTORY) ---
         function renderHistory() {
             const container = document.getElementById('historyContainer'); container.innerHTML = "";
             if(historyData.length === 0) { container.innerHTML = "<div class='col-12 text-center text-muted py-5'>ยังไม่มีประวัติการบันทึก</div>"; return; }
@@ -353,7 +350,7 @@
                         <div class="card-body">
                             <div class="d-flex justify-content-between mb-2"><span class="badge bg-dark"><i class="fas fa-calendar-day"></i> ${date}</span><span class="badge bg-secondary"><i class="fas fa-clock"></i> ${time}</span></div>
                             <h6 class="fw-bold text-primary mt-3"><i class="fas fa-user-edit"></i> ผู้บันทึก: ${user}</h6>
-                            <div class="text-muted small mt-2">คลิกเพื่อดูรายการที่นับ...</div>
+                            <div class="text-muted small mt-2">คลิกเพื่อดูรายละเอียด...</div>
                         </div>
                     </div>
                 </div>`;
@@ -367,7 +364,13 @@
 
             let html = `<div class="alert alert-secondary"><b><i class="fas fa-user"></i> ผู้บันทึก:</b> ${user} <br><b><i class="fas fa-calendar"></i> เวลา:</b> ${date} ${time}</div>`;
             html += `<table class="table table-bordered table-sm mt-3"><thead class="table-light"><tr><th>รายการยา</th><th class="text-center">ยอดนับ</th><th class="text-center">วันหมดอายุ</th></tr></thead><tbody>`;
-            items.forEach(i => { html += `<tr><td>${i.name || "-"}</td><td class="text-center text-success fw-bold">${i.newCount} ${i.unit||""}</td><td class="text-center">${i.newExp || "-"}</td></tr>`; });
+            
+            // แสดงข้อความในกรณีที่ไม่ได้แก้ไขยอดนับเลย
+            if(items.length === 0) {
+                html += `<tr><td colspan="3" class="text-center text-muted py-4"><i class="fas fa-check-circle text-success fs-4 mb-2"></i><br>ตรวจสอบยอดแล้ว (ไม่มีการเปลี่ยนแปลง)</td></tr>`;
+            } else {
+                items.forEach(i => { html += `<tr><td>${i.name || "-"}</td><td class="text-center text-success fw-bold">${i.newCount} ${i.unit||""}</td><td class="text-center">${i.newExp || "-"}</td></tr>`; });
+            }
             html += `</tbody></table>`;
             
             document.getElementById('historyModalBody').innerHTML = html;
@@ -381,7 +384,26 @@
             historyModalInstance.show();
         }
 
-        function renderHome() { /* เหมือนเดิม */ } function renderManage() { /* เหมือนเดิม */ } function openModal(act, data=null) { /* เหมือนเดิม */ } function submitItemData() { /* เหมือนเดิม */ } function deleteItem(rIdx, name) { /* เหมือนเดิม */ } function exportCSV() { /* เหมือนเดิม */ }
+        function renderHome() { /* ฟังก์ชันคงเดิม */
+            const nList = document.getElementById('nearExpireList'); const eList = document.getElementById('expiredList');
+            nList.innerHTML = ""; eList.innerHTML = ""; let nC = 0, eC = 0; const now = new Date(); const cY = now.getFullYear() + 543; const cM = now.getMonth() + 1;
+            globalData.forEach(item => {
+                const d = parseExpireDate(String(item.expText)); if(!d) return;
+                const diff = ((d.year - cY) * 12) + (d.month - cM);
+                const html = `<li class="list-group-item d-flex justify-content-between align-items-center"><span class="fw-bold" style="font-size:0.9rem;">${item.name}</span><span class="badge ${diff < 0 ? 'bg-danger' : 'bg-warning text-dark'} rounded-pill">${item.expText}</span></li>`;
+                if(diff < 0) { eList.innerHTML += html; eC++; } else if(diff >= 0 && diff <= 1) { nList.innerHTML += html; nC++; }
+            });
+            if(!nC) nList.innerHTML = "<li class='list-group-item text-success small'><i class='fas fa-check-circle'></i> ไม่มียาใกล้หมดอายุ</li>";
+            if(!eC) eList.innerHTML = "<li class='list-group-item text-success small'><i class='fas fa-check-circle'></i> ไม่มียาหมดอายุตกค้าง</li>";
+        }
+        function exportCSV() {
+            let csv = "\uFEFFรายการยา,หมวดหมู่,ข้อบ่งใช้,ยอดคงเหลือ,หน่วย,วันหมดอายุ\n";
+            let displayData = document.getElementById('filterReview').value !== "ทั้งหมด" ? globalData.filter(i => i.category === document.getElementById('filterReview').value) : globalData;
+            displayData.forEach(item => { csv += `"${item.name}","${item.category}","${item.indication}","${item.stock}","${item.unit}","${item.expText}"\n`; });
+            const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+            link.download = `รายงานคลังยา.csv`; link.click();
+        }
+        function renderManage() { /* คงเดิม */ } function openModal(act, data=null) { /* คงเดิม */ } function submitItemData() { /* คงเดิม */ } function deleteItem(rIdx, name) { /* คงเดิม */ }
     </script>
 </body>
 </html>
