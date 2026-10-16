@@ -184,7 +184,7 @@
         // ==========================================
         // 🛑 นำ URL ของ Apps Script มาวางตรงนี้
         // ==========================================
-        const API_URL = 'https://script.google.com/macros/s/AKfycbwb4Uye3U-u1OmqhEJAs2m_ACktXbyR8CufFkG1T38Kb1kESODV4pkYCDEHc2T8-Dt0qw/exec'; 
+        const API_URL = 'https://script.google.com/macros/s/AKfycbxOKJTZSp1GPBi0KOI3v46QVgH--rq9yJrXXyBJCa62heYQ5a5DaK526PsOAlkyj84pbg/exec'; 
 
         let globalData = [];
         let historyData = [];
@@ -273,7 +273,7 @@
                     <td><span class="badge bg-secondary">${item.stock} ${item.unit}</span></td>
                     <td><input type="number" id="c_d_${item.rowIndex}" class="form-control text-center fw-bold text-primary" placeholder="นับได้" oninput="markChanged(${item.rowIndex}, 'd')"></td>
                     <td><div class="input-group"><select id="em_d_${item.rowIndex}" class="form-select" onchange="markChanged(${item.rowIndex}, 'd')">${buildMonthDropdown(ex.m)}</select><select id="ey_d_${item.rowIndex}" class="form-select" onchange="markChanged(${item.rowIndex}, 'd')"><option value="">ปี พ.ศ.</option><option value="${ex.y}" selected>${ex.y?("25"+ex.y):""}</option>${yearOptions}</select></div></td>
-                    <td class="text-center"><button class="btn btn-outline-primary btn-sm rounded-circle" onclick='addLot(${JSON.stringify(item)})'><i class="fas fa-plus"></i></button></td>
+                    <td class="text-center"><button class="btn btn-outline-primary btn-sm rounded-circle" title="เพิ่มล็อต" onclick="addLot(${item.rowIndex})"><i class="fas fa-plus"></i></button></td>
                 </tr>`;
 
                 mContainer.innerHTML += `<div class="mobile-card border-start ${color.border}" id="row_m_${item.rowIndex}">
@@ -286,11 +286,12 @@
                         <div class="col-6"><select id="em_m_${item.rowIndex}" class="form-select" onchange="markChanged(${item.rowIndex}, 'm')">${buildMonthDropdown(ex.m)}</select></div>
                         <div class="col-6"><select id="ey_m_${item.rowIndex}" class="form-select" onchange="markChanged(${item.rowIndex}, 'm')"><option value="">ปี พ.ศ.</option><option value="${ex.y}" selected>${ex.y?("25"+ex.y):""}</option>${yearOptions}</select></div>
                     </div>
-                    <button class="btn btn-outline-primary btn-sm w-100 mt-2 fw-bold" onclick='addLot(${JSON.stringify(item)})'><i class="fas fa-plus-circle"></i> เพิ่มแถวล็อตใหม่</button>
+                    <button class="btn btn-outline-primary btn-sm w-100 mt-2 fw-bold" onclick="addLot(${item.rowIndex})"><i class="fas fa-plus-circle"></i> เพิ่มแถวล็อตใหม่</button>
                 </div>`;
             });
         }
 
+        // ฟังก์ชัน บันทึกข้อมูลที่นับทั้งหมด (เอาเงื่อนไขต้องกรอกข้อมูลออกแล้ว)
         function saveAllStock() {
             let updates = [];
             globalData.forEach(item => {
@@ -303,7 +304,7 @@
                 }
             });
 
-            // เอาเงื่อนไขที่บังคับกรอกออกแล้ว!
+            // กดปุ๊บ ถามชื่อปั๊บ แม้ไม่มีตัวเลขก็ตาม!
             let user = prompt("กรุณากรอกชื่อ/รหัส ผู้บันทึกการตรวจนับ:");
             if(user === null) return;
             if(user.trim() === "") user = "ไม่ระบุชื่อ";
@@ -312,16 +313,27 @@
             btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> กำลังบันทึก...`; btn.disabled = true;
 
             fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: "update_stock_batch", updates: updates, user: user }) })
-                .then(r => r.json()).then(() => { 
-                    showToast(`บันทึกการตรวจนับลงประวัติเรียบร้อย!`); loadData(); 
+                .then(r => r.json()).then((res) => { 
+                    if(res.status === 'error') {
+                        alert("เกิดข้อผิดพลาด: " + res.message);
+                    } else {
+                        showToast(`บันทึกการตรวจนับลงประวัติเรียบร้อย!`); 
+                        loadData(); 
+                    }
                     btn.innerHTML = `<i class="fas fa-save me-2"></i> บันทึกข้อมูลการตรวจนับ`; btn.disabled = false;
                 });
         }
 
-        function addLot(item) {
+        // ฟังก์ชันเพิ่มล็อต (แก้ปัญหาโค้ดพังเวลาชื่อยามีสัญลักษณ์พิเศษ)
+        function addLot(rowIndex) {
+            const item = globalData.find(i => i.rowIndex === rowIndex);
+            if(!item) return;
             if(confirm(`เพิ่มแถวใหม่สำหรับยา "${item.name}" ใช่หรือไม่?`)) {
                 fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: "add_lot", row: item.rowIndex, name: item.name, category: item.category, indication: item.indication, unit: item.unit }) })
-                .then(r => r.json()).then(() => { showToast('เพิ่มแถวสำเร็จ!'); loadData(); });
+                .then(r => r.json()).then((res) => { 
+                    if(res.status === 'error') { alert("เกิดข้อผิดพลาด: " + res.message); }
+                    else { showToast('เพิ่มแถวสำเร็จ!'); loadData(); }
+                });
             }
         }
 
@@ -365,7 +377,7 @@
             let html = `<div class="alert alert-secondary"><b><i class="fas fa-user"></i> ผู้บันทึก:</b> ${user} <br><b><i class="fas fa-calendar"></i> เวลา:</b> ${date} ${time}</div>`;
             html += `<table class="table table-bordered table-sm mt-3"><thead class="table-light"><tr><th>รายการยา</th><th class="text-center">ยอดนับ</th><th class="text-center">วันหมดอายุ</th></tr></thead><tbody>`;
             
-            // แสดงข้อความในกรณีที่ไม่ได้แก้ไขยอดนับเลย
+            // กรณีไม่มีการแก้ไขตัวเลขเลยในรอบนั้น
             if(items.length === 0) {
                 html += `<tr><td colspan="3" class="text-center text-muted py-4"><i class="fas fa-check-circle text-success fs-4 mb-2"></i><br>ตรวจสอบยอดแล้ว (ไม่มีการเปลี่ยนแปลง)</td></tr>`;
             } else {
